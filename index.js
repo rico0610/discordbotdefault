@@ -91,6 +91,34 @@ client.on('messageCreate', async msg => {
 		});
 	};
 
+//--- FOR RULES ---
+	if(msg.content === '!rules' && msg.author.id === '990875572282490924'){
+
+		const rulesEmbed = new EmbedBuilder()
+		.setColor(0x0099FF)
+		.setTitle('**SERVER RULES**')
+		.setDescription(
+			`Welcome to the **BrandlessPH Server** Discord community! In order to keep this community a safe and enjoyable place for everyone, we ask that all members adhere to the following rules:
+
+			1. Be respectful to others. No harassment, bullying, or discrimination of any kind will be tolerated.
+			2. Keep conversations and content appropriate for all audiences. No explicit or NSFW content is allowed.
+			3. Do not spam or flood the chat with unnecessary messages.
+			4. Do not share personal information about yourself or others.
+			5. Do not share illegal content or engage in any illegal activities.
+			6. Follow the specific rules and guidelines for each individual channel.
+			
+			If you are found to be in violation of these rules, you may receive a warning or be banned from the server at the discretion of the moderators.
+			
+			We appreciate your cooperation in helping to create a positive and welcoming community for everyone. Thank you for your understanding and support.
+			`
+		)
+
+		msg.channel.send({
+			embeds: [rulesEmbed]
+		})
+
+	};
+
 //--- FOR OPENAI CHAT ---
 	const AIChannel = '1057186168980119632';
 
