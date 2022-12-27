@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { token } = require('./config.json')
+//const { token } = require('./config.json')
 const { Client, Collection, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require(`discord.js`);
 const client = new Client({ 
 	intents: [
@@ -140,4 +140,4 @@ client.on('messageCreate', async msg => {
 
 
 
-client.login(token);
+client.login(process.env.token);
