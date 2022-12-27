@@ -4,11 +4,14 @@
   "description": "",
   "main": "bot.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node bot.js",
+    "dev": "nodemon --exec 'npm start'"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "captcha-canvas": "^3.2.1",
+    "discord-html-transcripts": "^3.1.2",
     "discord.js": "^14.7.1",
     "dotenv": "^16.0.3",
     "openai": "^3.1.0"

@@ -1,6 +1,6 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 
-//const wait = require('node:timers/promises').setTimeout;
+const wait = require('node:timers/promises').setTimeout;
 
 module.exports = {
 
@@ -9,6 +9,7 @@ module.exports = {
 		.setDescription('Replies with pong!'),
 	async execute(interaction) {
 		await interaction.reply('pong!');
+
 		// const message = await interaction.fetchReply(); //-- FOR FETCHING THE REPLY ---
 		// console.log(message.content);
 		// await interaction.deleteReply(); // --- FOR DELETING REPLY ---

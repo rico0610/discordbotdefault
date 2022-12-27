@@ -1,11 +1,15 @@
-//require("dotenv").config(); //-- STARTING THE .env FILE --
-//const token = process.env.TOKEN;
 const fs = require('node:fs');
 const path = require('node:path');
-const { Client, Collection, GatewayIntentBits, EmbedBuilder, Events } = require(`discord.js`);
-const { token } = require('./config.json');
-
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
+const { token } = require('./config.json')
+const { Client, Collection, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require(`discord.js`);
+const client = new Client({ 
+	intents: [
+		GatewayIntentBits.Guilds, 
+		GatewayIntentBits.GuildMessages, 
+		GatewayIntentBits.MessageContent
+	] 
+});
+const { ask } = require("./openAI.js");
 
 //---- for dynamically retrieving command files ----
 client.commands = new Collection();
@@ -38,10 +42,73 @@ for (const file of eventFiles) {
 	}
 }
 
+client.on('messageCreate', async msg => {
 
+//--- FOR VERIFY CHANNEL ---	
+	if(msg.content === '!verify' && msg.author.id === '990875572282490924') {
+		const row = new ActionRowBuilder()
+    	.addComponents(
+			new ButtonBuilder()
+				.setCustomId('verify')
+				.setLabel('Verify')
+				.setStyle(ButtonStyle.Primary)
+				.setEmoji('✅'),
+    	);
 
+		const embed = new EmbedBuilder()
+			.setColor(0x0099FF)
+			.setTitle('⛔️ Verification Required! ⛔️')
+			.setDescription('To access `BrandlessPH`, you need to pass the verification first.\n\nPress on the `verify` button below.');
 
+		msg.channel.send({ 
+				ephemeral: false,
+				embeds: [embed],
+				components: [row]
+			});
+	};
 
+//--- FOR TICKET CHANNEL ---
+	if(msg.content === '!ticket' && msg.author.id === '990875572282490924') {
+
+		const ticketRow = new ActionRowBuilder()
+    	.addComponents(
+			new ButtonBuilder()
+				.setCustomId('ticketCreate')
+				.setLabel('Create Ticket')
+				.setStyle(ButtonStyle.Secondary)
+				.setEmoji('☎️'),
+    	);
+
+		const ticketEmbed = new EmbedBuilder()
+		.setColor(0x0099FF)
+		.setTitle('Open ticket')
+		.setDescription('To create a ticket, click on the `Create Ticket` button');
+
+		msg.channel.send({ 
+				ephemeral: false,
+				embeds: [ticketEmbed],
+				components: [ticketRow]
+		});
+	};
+
+//--- FOR OPENAI CHAT ---
+	const AIChannel = '1057186168980119632';
+
+	if(msg.channel.id === AIChannel){
+
+			if (msg.author.bot) return;
+
+			const prompt = `Act like a virtual assistant and respond to ${msg.content}`;
+			const answer = await ask(prompt); //prompt GPT-3
+	
+			await msg.reply(answer);
+
+	} else {
+
+		if (msg.author.bot) return;
+
+	}
+})
 
 
 
