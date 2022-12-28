@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@napi-rs/canvas": "^0.1.30",
     "captcha-canvas": "^3.2.1",
     "discord-html-transcripts": "^3.1.2",
     "discord.js": "^14.7.1",

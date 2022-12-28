@@ -61,34 +61,44 @@ module.exports = {
 			//--- FOR CLOSING A TICKET ---
 			if(interaction.customId === 'closeButton'){
 
-				try {
+				interaction.reply({
+					content: `Closing the ticket in a few seconds`,
+					ephemeral: false,
+				}).then(async () => {
 
-					const ticketToClose = interaction.guild.channels.cache.find(channel => channel.name === `ticket-${interaction.user.username}`);
+					await wait(5000);
+					await interaction.channel.delete()
 
-					console.log(ticketToClose);
+				})
 
-					const attachment = await discordTranscripts.createTranscript(ticketToClose);
+				// try {
 
-					const transcriptsChannel = await interaction.guild.channels.cache.find(channel => channel.id === '1056850849671938048')
+				// 	const ticketToClose = interaction.guild.channels.cache.find(channel => channel.name === `ticket-${interaction.user.username}`);
 
-					transcriptsChannel.send({
-						content: `Ticket close by ${interaction.user}`,
-						files: [attachment]
-					})
+				// 	console.log(ticketToClose);
 
-					interaction.reply({
-						content: `Closing the ticket in a few seconds`,
-						ephemeral: false,
-					}).then(async () => {
+				// 	const attachment = await discordTranscripts.createTranscript(ticketToClose);
 
-						await wait(5000);
-						await interaction.channel.delete()
+				// 	const transcriptsChannel = await interaction.guild.channels.cache.find(channel => channel.id === '1056850849671938048')
 
-					})
+				// 	transcriptsChannel.send({
+				// 		content: `Ticket close by ${interaction.user}`,
+				// 		files: [attachment]
+				// 	})
+
+				// 	interaction.reply({
+				// 		content: `Closing the ticket in a few seconds`,
+				// 		ephemeral: false,
+				// 	}).then(async () => {
+
+				// 		await wait(5000);
+				// 		await interaction.channel.delete()
+
+				// 	})
 					
-				} catch(error) {
-					console.error(error);
-				}
+				// } catch(error) {
+				// 	console.error(error);
+				// }
 			};
 			
 
@@ -162,7 +172,7 @@ module.exports = {
 				if(captchaAnswer !== captchaText){
 
 					const embedReply = new EmbedBuilder()
-					.setDescription('Incorrect captcha! Please try again.')
+					.setDescription('❌ `Incorrect captcha! Please try again.`')
 					.setColor('#020303')
 
 					await interaction.reply({
@@ -178,7 +188,7 @@ module.exports = {
 					await interaction.member.roles.add(role); // assigning a role member
 					
 					const embedReply = new EmbedBuilder()
-					.setDescription(`You're now verified`)
+					.setDescription("✅ `You're now verified`")
 					.setColor('#020303')
 
 					await interaction.reply({

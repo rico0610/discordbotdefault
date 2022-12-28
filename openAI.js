@@ -1,7 +1,8 @@
-//const { openAI } = require('./config.json')
+const { openAI } = require('./config.json')
 const { Configuration, OpenAIApi } = require("openai");
 const configuration = new Configuration({
     apiKey: process.env.openAI,
+    //apiKey: openAI,
 });
 const openai = new OpenAIApi(configuration);
 async function ask(prompt) {

@@ -34,6 +34,21 @@ module.exports = {
     async execute(interaction) {
 
         await interaction.reply({ content: 'menu', components: [row] })
+
+        if (interaction.isStringSelectMenu()) {
+
+			if(interaction.customId === 'select'){
+
+				const selected = interaction.values.join(', ');
+
+				await interaction.reply({ content: 'Something was selected!', components: [] }); //---- REMOVING THE MENU ----
+
+
+				if(selected){
+					await interaction.editReply(`The user selected: ${selected}`);
+				};
+			};
+        }
     }
 
 };

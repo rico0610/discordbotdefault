@@ -1,4 +1,6 @@
-const { Events, EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { Events, EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require("discord.js");
+const Canvas = require('@napi-rs/canvas');
+const { request } = require("node:https");
 const wait = require('node:timers/promises').setTimeout;
 
 module.exports = {
@@ -38,6 +40,7 @@ module.exports = {
 				const ticketInput = interaction.fields.getTextInputValue('ticketInput'); //-- getting the input
 				const categoryId = '1056070016803549254';
 				const modRoleId = '1056831538349752351';
+				const everyoneId = '1056069438564220999';
 
 				// Create the channel
 				await interaction.guild.channels.create({
@@ -46,7 +49,7 @@ module.exports = {
 					parent: categoryId, // category
 					permissionOverwrites: [
 						{
-							id: interaction.guild.id,
+							id: everyoneId,
 							deny: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.CreateInstantInvite],
 						},
 						{
@@ -55,7 +58,8 @@ module.exports = {
 						},
 						{
 							id: interaction.user.id,
-							allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageMessages],
+							allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages],
+							deny: [PermissionsBitField.Flags.CreatePublicThreads, PermissionsBitField.Flags.CreatePrivateThreads, PermissionsBitField.Flags.ManageMessages]
 						},
 					],
 				}).then(async ticketChannel => {
@@ -63,7 +67,13 @@ module.exports = {
 					const embedReply = new EmbedBuilder()
 					.setTitle('**Concern:**')
 					.setDescription(`${ticketInput}`)
+					.addFields(
+						{name: 'Reporter', value: `${interaction.user}`},
+						{name: '\u200B', value: '\u200B'},
+					)
 					.setColor('#020303')
+					.setThumbnail('https://i.imgur.com/wGWdsT7.png')
+					.setFooter({ text: 'BrandlessPH', iconURL: 'https://i.imgur.com/wGWdsT7.png' })
 
 					const row = new ActionRowBuilder()
 					.addComponents(
@@ -73,9 +83,13 @@ module.exports = {
 							.setStyle(ButtonStyle.Danger),
 					)
 
+					const mod = interaction.guild.roles.cache.find(r => r.name === 'moderator');
+					const admin = interaction.guild.roles.cache.find(r => r.name === 'Admin');
+
 					//-- SENDING THE TICKET INPUT TO THE CREATED CHANNEL --
 
 					ticketChannel.send({
+						content: `Here's your ticket ${interaction.user}. Please check ${admin} ${mod}`,
 						embeds: [embedReply],
 						ephemeral: false,
 						components: [row]
