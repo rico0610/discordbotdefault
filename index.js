@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-//const { token } = require('./config.json')
+const { token, uri } = require('./config.json')
 const { Events, Client, Collection, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder, ChannelType, PermissionsBitField } = require(`discord.js`);
 const client = new Client({ 
 	intents: [
@@ -9,12 +9,16 @@ const client = new Client({
 		GatewayIntentBits.MessageContent
 	] 
 });
+
+const { connect, connection } = require('mongoose');
+const Conversation = require('././schema/Conversation');
+
 const { ask } = require("./openAI.js");
 
 const wait = require('node:timers/promises').setTimeout;
 
 //-- FOR AI CONVERSATION --
-let conversationHistory = "";
+//let conversationHistory = "";
 
 //---- for dynamically retrieving command files ----
 client.commands = new Collection();
@@ -42,10 +46,13 @@ for (const file of eventFiles) {
 	const event = require(filePath);
 	if (event.once) {
 		client.once(event.name, (...args) => event.execute(...args));
+		// if(event.once) connection.once(event.name, (...args) => event.execute(...args, client))
+		// else connection.on(event.name, (...args) => event.execute(...args, client));
 	} else {
 		client.on(event.name, (...args) => event.execute(...args));
-	}
+	};
 }
+
 
 client.on('messageCreate', async msg => {
 
@@ -159,7 +166,6 @@ client.on('messageCreate', async msg => {
 	};
 
 //--- FOR ROLES POST ---
-
 	if(msg.content === '!roles' && msg.author.id === '990875572282490924') {
 
 		const rolesRow = new ActionRowBuilder()
@@ -270,24 +276,68 @@ client.on('messageCreate', async msg => {
 	// }
 
 
-	const AIChannel = '1057559988840701952';
+	const AIChannel = '1048072739350646875';
 
 	if(msg.channel.id === AIChannel){
 			
 		if (msg.author.bot) return;
 
-		conversationHistory += `${msg.content}\n`
+		Conversation.findOne({ userID: `${msg.author.id}`}).then(async result => {
 
-			try{
+			if(result === null){
+				Conversation.create({ userID: `${msg.author.id}`, conversation: [{ messageContent: `${msg.content}` }] })
+				.then( result =>{
+					result.conversation.forEach(async (message) => {
+						console.log(message.messageContent);
 
-				const prompt = `Respond correctly based on ${conversationHistory}`;
+						const prompt = `Respond correctly based on ${message.messageContent} in  a polite mannerly.`;
+						const answer = await ask(prompt); //prompt GPT-3
+
+						const resetButton = new ActionRowBuilder()
+						.addComponents(
+							new ButtonBuilder()
+								.setCustomId('reset')
+								.setLabel('🗣️ Reset Convo')
+								.setStyle(ButtonStyle.Primary),
+						);
+			
+						await msg.reply({
+							content: answer,
+							components: [resetButton],
+						});
+					})
+				})
+			} else {
+
+				Conversation.updateOne(
+					{ userID: `${msg.author.id}` },
+					{ $push: { conversation: { messageContent: `${msg.content}` } } },
+					function(err, res) {
+					  if (err) throw err;
+					}
+				);
+
+				const prompt = `Pretend to be an AI chat bot that responds to a person in a conversation. Be polite, lively, and positive with your responses.
+				
+				Person: Good day bot.
+				bot: Hi. Good day to you too.
+				
+				Person: How are you doing?
+				bot: I'm doing great. Thanks for asking. How are you doing?
+
+				Person: I'm doing great as well. What else can you do?
+				bot: I can answer anything you'd like to ask me.
+				
+				Person: ${msg.content}
+				bot:`;
+
 				const answer = await ask(prompt); //prompt GPT-3
 
 				const resetButton = new ActionRowBuilder()
 				.addComponents(
 					new ButtonBuilder()
 						.setCustomId('reset')
-						.setLabel('🔄 reset')
+						.setLabel('🗣️ Reset Convo')
 						.setStyle(ButtonStyle.Primary),
 				);
 	
@@ -296,10 +346,54 @@ client.on('messageCreate', async msg => {
 					components: [resetButton],
 				});
 
-			} catch (error) {
 
-				console.error;
+				// if(msg.content !== null){
+
+				// 	// Fetch all messageContent properties
+				// 	await Conversation.find({}, 'conversation.messageContent', async function(err, conversations) {
+				// 		if (err) throw err;
+					
+				// 		// Flatten the array of messageContent properties
+				// 		const messageContent = conversations.flatMap(conversation => conversation.conversation.map(obj => obj.messageContent));
+				// 		console.log(messageContent);
+
+				// 		const latestPrompt = messageContent[messageContent.length-1];
+
+				// 		console.log(latestPrompt);
+						
+				// 		const prompt = `Pretend to be an AI chat bot that responds to a person in a conversation.
+						
+				// 		Person: Good day bot.
+				// 		bot: Hi. Good day to you too.
+						
+				// 		Person: How are you doing?
+				// 		bot: I'm doing great. Thanks for asking. How are you doing?
+
+				// 		Person: I'm doing great as well. What else can you do?
+				// 		bot: I can answer anything you'd like to ask me.
+						
+				// 		Person: ${latestPrompt}
+				// 		bot:`;
+
+				// 		const answer = await ask(prompt); //prompt GPT-3
+
+				// 		const resetButton = new ActionRowBuilder()
+				// 		.addComponents(
+				// 			new ButtonBuilder()
+				// 				.setCustomId('reset')
+				// 				.setLabel('🔄 reset')
+				// 				.setStyle(ButtonStyle.Primary),
+				// 		);
+			
+				// 		await msg.reply({
+				// 			content: answer,
+				// 			components: [resetButton],
+				// 	});
+				// });
+
+				// }
 			}
+		})
 
 	} else {
 
@@ -313,7 +407,14 @@ client.on(Events.InteractionCreate, async interaction => {
 
 		if(interaction.customId === 'reset') {
 
-			conversationHistory = "";
+			// Create a filter to find the documents you want to delete
+			const filter = { userID: `${interaction.user.id}` };
+
+			// Delete the documents
+			Conversation.deleteMany(filter, function (err) {
+				if (err) return handleError(err);
+			// deleted at most one tank document
+			});
 
 			await interaction.reply({
 				content: `${interaction.user}, conversation has been reset!`,
@@ -326,38 +427,12 @@ client.on(Events.InteractionCreate, async interaction => {
 			});
 		};
 	};
-
-// For chatting with AI button
-	// if(interaction.customId === 'chatAI') {
-
-	// 	const AICategory = '1057186044258299971';
-	// 	const modRoleId = '1056831538349752351';
-	// 	const everyoneId = '1056069438564220999';
-
-	// 	await interaction.guild.channels.create({
-	// 		name: `chat-${interaction.user.username}`,
-	// 		type: ChannelType.GuildText,
-	// 		parent: AICategory, // category
-	// 		permissionOverwrites: [
-	// 			{
-	// 				id: everyoneId,
-	// 				deny: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.CreateInstantInvite],
-	// 			},
-	// 			{
-	// 				id: modRoleId,
-	// 				allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageMessages, PermissionsBitField.Flags.CreateInstantInvite]
-	// 			},
-	// 			{
-	// 				id: interaction.user.id,
-	// 				allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages],
-	// 				deny: [PermissionsBitField.Flags.CreatePublicThreads, PermissionsBitField.Flags.CreatePrivateThreads, PermissionsBitField.Flags.ManageMessages]
-	// 			},
-	// 		],
-	// 	})
-	// }
 });
 
 
 
-client.login(process.env.token);
-//client.login(token);
+//client.login(process.env.token);
+client.login(token);
+(async () => {
+	await connect(uri).catch(console.error)
+})();

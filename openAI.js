@@ -1,15 +1,16 @@
-//const { openAI } = require('./config.json')
+const { openAI } = require('./config.json')
 const { Configuration, OpenAIApi } = require("openai");
+
 const configuration = new Configuration({
-    apiKey: process.env.openAI,
-    //apiKey: openAI,
+    //apiKey: process.env.openAI,
+    apiKey: openAI,
 });
 const openai = new OpenAIApi(configuration);
 async function ask(prompt) {
     const response = await openai.createCompletion({
         model: "text-davinci-003",
         prompt,
-        temperature: 0.1,
+        temperature: 0.5,
         max_tokens: 1023,
         top_p: 1,
         frequency_penalty: 0,
