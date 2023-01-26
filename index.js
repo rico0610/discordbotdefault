@@ -417,10 +417,10 @@ client.on("messageReactionAdd", async (reaction, user) => {
   } else if (msg.id === msgId) {
     const emoji = reaction.emoji.name;
     if (rolesEmojis[emoji]) {
-      const role = reaction.message.guild.roles.cache.find(
+      const role = await reaction.message.guild.roles.cache.find(
         (r) => r.name === rolesEmojis[emoji]
       );
-      reaction.message.guild.members.cache.get(user.id).roles.add(role);
+      await reaction.message.guild.members.cache.get(user.id).roles.add(role);
       console.log("Role assigned.");
     }
   }
