@@ -60,8 +60,8 @@ const client = new Client({
 });
 
 // Replace with your actual guild and channel ID
-const guildId = "991159496359542804";
-const channelId = "1059713593534324746";
+const guildId = "1056069438564220999";
+const channelId = "1056804025674235945";
 
 //---- for dynamically retrieving command files ----
 client.commands = new Collection();
