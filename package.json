@@ -2,7 +2,7 @@
   "name": "bot",
   "version": "1.0.0",
   "description": "",
-  "main": "bot.js",
+  "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon --exec 'npm start'"
@@ -10,15 +10,18 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@napi-rs/canvas": "^0.1.30",
+    "@napi-rs/canvas": "^0.1.25",
     "captcha-canvas": "^3.2.1",
     "chalk": "^5.2.0",
+    "cheerio": "^1.0.0-rc.12",
     "discord-html-transcripts": "^3.1.2",
     "discord.js": "^14.7.1",
     "dotenv": "^16.0.3",
     "mongodb": "^4.13.0",
     "mongoose": "^6.8.2",
-    "openai": "^3.1.0"
+    "openai": "^3.1.0",
+    "twit": "^2.2.11",
+    "twitter-v2": "^1.1.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.20"
