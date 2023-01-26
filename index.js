@@ -4,9 +4,9 @@ const { connect } = require("mongoose");
 const Canvas = require("@napi-rs/canvas");
 const { request } = require("undici");
 const userLevel = require("./levelSchema/userLevel");
-const Reaction = require("./reactionSchema/reaction");
+//const Reaction = require("./reactionSchema/reaction");
 //const InviteData = require("./inviteSchema/invite");
-const { ask } = require("./openAI.js");
+//const { ask } = require("./openAI.js");
 const wait = require("node:timers/promises").setTimeout;
 // const {
 //   token,
