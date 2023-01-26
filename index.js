@@ -416,7 +416,7 @@ client.on("messageReactionAdd", async (reaction, user) => {
     return;
   } else if (msg.id === msgId) {
     const emoji = reaction.emoji.name;
-    if (rolesEmojis[emoji]) {
+    if (rolesEmojis[emoji] && userRoles.size === 0) {
       const role = await reaction.message.guild.roles.cache.find(
         (r) => r.name === rolesEmojis[emoji]
       );
