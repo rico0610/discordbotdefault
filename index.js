@@ -1196,7 +1196,7 @@ client.on("messageCreate", async (msg) => {
         new EmbedBuilder()
           .setTitle("__Verification Required!__")
           .setDescription(
-            "To access `Solidus AI` server, you need to pass the verification first.\n\nPress on the `verify` button below."
+            "To access `Brandless PH` server, you need to pass the verification first.\n\nPress on the `verify` button below."
           )
           .setColor("#383434"),
       ],
