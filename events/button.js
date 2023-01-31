@@ -176,6 +176,33 @@ module.exports = {
 
       //--- FOR VERIFY ---
       if (interaction.customId === "verify") {
+        const continueRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId("continue")
+            .setLabel("Continue")
+            .setStyle(ButtonStyle.Primary)
+        );
+
+        interaction.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setTitle(
+                "Before you continue, we highly recommend turning off your DMs on this server."
+              )
+              .setDescription(
+                "This is to prevent spam and to keep your privacy safe.\nTo turn off your DMs, follow the guide below:\n\n◦ Right-click on this server's icon\n◦ Click on ` Privacy Settings `\n◦ Turn off direct messages\n◦ Click on ` Done `\n\n Once you're done, click on the ` Continue ` button below to complete the verification.`"
+              )
+              .setColor("#383434")
+              .setImage(
+                "https://cdn.discordapp.com/attachments/991159496359542808/1069788006795456644/offdm.gif"
+              ),
+          ],
+          components: [continueRow],
+          ephemeral: true,
+        });
+      }
+
+      if (interaction.customId === "continue") {
         // --- RANDOM CAPTCHA ----
         const captcha = new Captcha(); //create a captcha canvas of 100x300.
         captcha.async = false; //Sync
@@ -194,7 +221,7 @@ module.exports = {
           .setDescription(
             "`Please type the captcha below to be able to access this server!`"
           )
-          .setColor("#020303")
+          .setColor("#383434")
           .setImage("attachment://captcha.png")
           .setFooter({ text: "Verification Period: 1 minute" });
 
@@ -245,7 +272,7 @@ module.exports = {
         if (captchaAnswer !== captchaText) {
           const embedReply = new EmbedBuilder()
             .setDescription("❌ `Incorrect captcha! Please try again.`")
-            .setColor("#020303");
+            .setColor("#383434");
 
           await interaction
             .reply({
@@ -263,8 +290,9 @@ module.exports = {
           await interaction.member.roles.add(role); // assigning a role member
 
           const embedReply = new EmbedBuilder()
-            .setDescription("✅ `You're now verified`")
-            .setColor("#020303");
+            .setTitle("Welcome to the server!")
+            .setDescription(`You're now verified`)
+            .setColor("#383434");
 
           const welcomeRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()

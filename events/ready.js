@@ -1,10 +1,10 @@
-const { Events } = require('discord.js');
+const { Events } = require("discord.js");
 
 module.exports = {
-	name: Events.ClientReady,
-	once: true,
-	async execute(client) {
-		console.log(`Ready! Logged in as ${client.user.tag}`);
-		client.user.setPresence({ activities: [{ name: 'maintenance mode' }], type: 'Listening' });
-	},
+  name: Events.ClientReady,
+  once: true,
+  async execute(client) {
+    console.log(`Ready! Logged in as ${client.user.tag}`);
+    client.user.setStatus("online");
+  },
 };
