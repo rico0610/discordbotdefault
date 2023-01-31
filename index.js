@@ -1317,6 +1317,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.customId === "reset") {
       try {
         await conversation.deleteOne({ userId: interaction.user.id });
+        await interaction.reply({
+          content: `${interaction.user}, Our conversation has been reset.`,
+        });
+
+        return;
       } catch (error) {
         console.error(error);
       }
