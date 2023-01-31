@@ -1461,11 +1461,6 @@ client.on("guildMemberAdd", async (member) => {
 
   if (member.user.bot) return;
 
-  const unverifiedRole = member.guild.roles.cache.find(
-    (role) => role.name === "unverified"
-  );
-  member.roles.add(unverifiedRole);
-
   setTimeout(async () => {
     // Get the member's unique invite link
 
