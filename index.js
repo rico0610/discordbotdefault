@@ -1210,14 +1210,14 @@ client.on("messageCreate", async (msg) => {
   const resetButton = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId("reset")
-      .setLabel("TReset Convo")
+      .setLabel("Reset Convo")
       .setEmoji("🔄")
       .setStyle(ButtonStyle.Primary)
   );
 
   //find a role with the name "Community Moderator"
   const modRole = msg.guild.roles.cache.find(
-    (role) => role.name === "Community Moderator"
+    (role) => role.name === "moderator"
   );
 
   if (msg.channel.id === AIChannel) {
