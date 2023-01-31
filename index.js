@@ -1473,7 +1473,7 @@ client.on("guildMemberAdd", async (member) => {
       member.roles.remove(unverifiedRole);
 
       member.guild.channels.cache
-        .find((channel) => channel.id === "1059713593534324746")
+        .find((channel) => channel.id === "1064744958487183410")
         .createInvite({ maxAge: 0 })
         .then(async () => {
           const canvas = Canvas.createCanvas(700, 250);
