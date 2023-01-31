@@ -1541,7 +1541,7 @@ client.on("guildMemberAdd", async (member) => {
 
           // Send a welcome message to the new member
           member.guild.channels.cache
-            .find((channel) => channel.id === "1067190296846286909")
+            .find((channel) => channel.id === "1064744958487183410")
             .send({
               content: `${member.user} joined the server!`,
               files: [attachment],
