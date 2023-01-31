@@ -1315,16 +1315,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isButton()) {
     //--FOR RESETTING AI CONVERSATION ---
     if (interaction.customId === "reset") {
-      // Delete the file
-      context = "";
-
-      await interaction.reply({
-        content: `${interaction.user}, conversation has been reset!`,
-        ephemeral: false,
-      });
-
-      if (!context) {
-        console.log("true");
+      try {
+        await conversation.deleteOne({ userId: interaction.user.id });
+      } catch (error) {
+        console.error(error);
       }
     }
 
