@@ -919,6 +919,7 @@ client.on("messageCreate", async (msg) => {
 // let faqData = JSON.parse(data); //---- INITIALLY IMPORTING THE PROJECTLIST JS FILE -----
 // let faq = faqData.slice();
 
+//---- FOR AI DATABASE ----
 let faq = [
   {
     question: "Who created you?",
@@ -1012,6 +1013,33 @@ function someConversionFunction(tokens) {
   return vector;
 }
 
+//--- FOR ADDING NEW Q AND A TO THE DATABASE ----
+
+client.on("messageReactionAdd", async (reaction, user) => {
+  if (user.bot) return;
+  if (reaction.message.partial) {
+    try {
+      await reaction.message.fetch();
+    } catch (error) {
+      console.log("Something went wrong when fetching the message: ", error);
+      return;
+    }
+  }
+  if (reaction.emoji.name === "✅") {
+    const questionMessage = reaction.message;
+    const answerMessage = await questionMessage.channel.fetchMessage(
+      questionMessage.reply.id
+    );
+    const question = questionMessage.content;
+    const answer = answerMessage.content;
+    const qaMessage = await QAMessage.create({
+      question,
+      answer,
+      user: user.id,
+    });
+    console.log(`QA message has been saved: ${qaMessage}`);
+  }
+});
 //-------POSTING AND AI
 client.on("messageCreate", async (msg) => {
   //-- FOR STORING FAQ DATA IN MONGODB VIA ATTACHMENT FILES ----
@@ -1357,22 +1385,6 @@ client.on("messageCreate", async (msg) => {
         for (const emoji in rolesEmojis) {
           await message.react(emoji);
         }
-
-        // interval function to remove extra emojis
-        setInterval(async () => {
-          try {
-            for (const [key, reaction] of message.reactions.cache) {
-              if (!rolesEmojis[reaction.emoji.name]) {
-                const users = await reaction.users.fetch();
-                for (const [userID, user] of users) {
-                  await reaction.users.remove(userID);
-                }
-              }
-            }
-          } catch (error) {
-            console.error("Failed to remove reactions.");
-          }
-        }, 10000); // interval of 2 seconds
       });
   }
 
