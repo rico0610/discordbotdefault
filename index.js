@@ -5,6 +5,9 @@ const Canvas = require("@napi-rs/canvas");
 const { request } = require("undici");
 const userLevel = require("./levelSchema/userLevel");
 const conversation = require("./conversationSchema/conversation");
+const stickySchema = require("./stickySchema/sticky");
+const faqs = require("./faqSchema/faqs");
+const https = require("https");
 //const InviteData = require("./inviteSchema/invite");
 const { ask } = require("./openAI.js");
 const cosineSimilarity = require("cosine-similarity");
@@ -42,6 +45,7 @@ const {
   AttachmentBuilder,
   Partials,
   MessageReaction,
+  Sticker,
 } = require(`discord.js`);
 
 const client = new Client({
@@ -911,41 +915,80 @@ client.on("messageCreate", async (msg) => {
 // });
 
 // Pre-process the pre-defined FAQ data into numerical representations
-const faq = [
+// let data = fs.readFileSync("./faqs.txt", "utf8");
+// let faqData = JSON.parse(data); //---- INITIALLY IMPORTING THE PROJECTLIST JS FILE -----
+// let faq = faqData.slice();
+
+let faq = [
   {
-    question: "What is Brandless PH?",
+    question: "Who created you?",
     answer:
-      "Brandless PH is a company that offers support services for cryptocurrency projects, including social media management, graphics design, community management, and other digital marketing strategies.",
-  },
-  {
-    question: "What is the vision of Brandless PH?",
-    answer:
-      "The vision of Brandless PH is to provide quality support for leading cryptocurrency projects, spanning a wide array of services.",
-  },
-  {
-    question: "What type of services does Brandless PH offer?",
-    answer:
-      "Brandless PH offers social media management, graphics design, community management, and other digital marketing strategies for cryptocurrency projects.",
-  },
-  {
-    question: "Who makes up the Brandless PH team?",
-    answer:
-      "The Brandless PH team is composed of highly competitive and diverse individuals with a shared vision of providing the best quality services to clients.",
-  },
-  {
-    question: "What is the philosophy of Brandless PH?",
-    answer:
-      "Brandless PH believes that elevated positioning, token success, and a strong market presence for projects stem from strategic thinking, an intelligent approach, and creative insight, which are the company's core tenets.",
-  },
-  {
-    question: "Who is the founder of Brandless PH?",
-    answer: "The founder of brandless PH is John Kenneth Dais.",
+      "I was created by Brandless PH team to help crypto communities get answers to commonly asked questions about a crypto project.",
   },
 ];
-
 const faqVectors = [];
-for (let i = 0; i < faq.length; i++) {
-  faqVectors.push(somePreprocessingFunction(faq[i].question));
+
+function fetch() {
+  faqs
+    .find({})
+    .then((result) => {
+      if (result.length > 0) {
+        // faq = result.map((item) => ({
+        //   question: item.question.toString(),
+        //   answer: item.answer.toString(),
+        // }));
+
+        faq = result;
+
+        console.log("FAQ data loaded");
+      } else {
+        console.log("No FAQ data found");
+
+        return;
+      }
+    })
+    .then(() => {
+      for (let i = 0; i < faq.length; i++) {
+        faqVectors.push(somePreprocessingFunction(faq[i].question));
+      }
+    });
+}
+
+fetch();
+
+async function getFaq() {
+  const faqResult = await faqs.find({});
+  return faqResult;
+}
+
+async function main() {
+  //get the channel using the channel id
+  const channel = await client.channels.fetch("1057837697948983446");
+
+  const faq = await getFaq();
+  if (faq.length > 0) {
+    let faqData = [];
+    faq.forEach((element) => {
+      let faqObject = {
+        question: element.question,
+        answer: element.answer,
+      };
+      faqData.push(faqObject);
+    });
+    let faqString = JSON.stringify(faqData, null, 2);
+    fs.writeFile("faq.txt", faqString, (err) => {
+      if (err) throw err;
+      console.log("The faq data has been written to the file");
+      channel.send({
+        files: [
+          {
+            attachment: "faq.txt",
+            name: "faq.txt",
+          },
+        ],
+      });
+    });
+  }
 }
 
 function somePreprocessingFunction(text) {
@@ -971,6 +1014,306 @@ function someConversionFunction(tokens) {
 
 //-------POSTING AND AI
 client.on("messageCreate", async (msg) => {
+  //-- FOR STORING FAQ DATA IN MONGODB VIA ATTACHMENT FILES ----
+  if (
+    msg.attachments.size > 0 &&
+    msg.attachments.first().name === "faqs.txt" &&
+    msg.member.roles.cache.some((role) => role.name === "Admin")
+  ) {
+    const attachment = msg.attachments.first();
+
+    // Download the .txt file and read its contents
+    let data = "";
+    https.get(attachment.url, (res) => {
+      res.on("data", (chunk) => {
+        data += chunk;
+      });
+      res.on("end", () => {
+        // Parse the data as JSON
+        const faqData = JSON.parse(data);
+
+        faqs.insertMany(faqData, (error) => {
+          if (error) {
+            msg.reply({
+              embeds: [
+                new EmbedBuilder()
+                  .setDescription(`**Error creating FAQ data: ${error}.**`)
+                  .setColor("#303434"),
+              ],
+            });
+          } else {
+            msg.reply({
+              embeds: [
+                new EmbedBuilder()
+                  .setDescription(`**FAQ data created in DB successfully!**`)
+                  .setColor("#303434"),
+              ],
+            });
+          }
+        });
+      });
+    });
+  }
+
+  if (
+    msg.content === "!fetch" &&
+    msg.member.roles.cache.some((role) => role.name === "Admin")
+  ) {
+    faqs
+      .find({})
+      .then(async (result) => {
+        if (result.length > 0) {
+          faq = result;
+
+          msg.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setDescription(`**FAQ data fetched!**`)
+                .setColor("#303434"),
+            ],
+          });
+        } else {
+          msg.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setDescription(`**No data available!**`)
+                .setColor("#303434"),
+            ],
+          });
+
+          return;
+        }
+      })
+      .then(() => {
+        for (let i = 0; i < faq.length; i++) {
+          faqVectors.push(somePreprocessingFunction(faq[i].question));
+        }
+      });
+  }
+
+  if (
+    msg.content === "!deletefaq" &&
+    msg.member.roles.cache.some((role) => role.name === "Admin")
+  ) {
+    faqs.deleteMany({}, (error) => {
+      if (error) {
+        msg.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setDescription(`**Error deleting FAQ: ${error}.**`)
+              .setColor("#303434"),
+          ],
+        });
+      } else {
+        msg.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setDescription(`**FAQs were deleted successfully from DB!**`)
+              .setColor("#303434"),
+          ],
+        });
+      }
+    });
+  }
+
+  if (
+    msg.content === "!createfile" &&
+    msg.member.roles.cache.some((role) => role.name === "Admin")
+  ) {
+    main();
+
+    return;
+  }
+
+  //--- FOR AI CONVERSATION ---
+  const AIChannel = "1057559988840701952";
+
+  const resetButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("reset")
+      .setLabel("Reset Convo")
+      .setEmoji("🔄")
+      .setStyle(ButtonStyle.Primary)
+  );
+
+  //find a role with the name "Community Moderator"
+  const modRole = msg.guild.roles.cache.find(
+    (role) => role.name === "Community Moderator"
+  );
+
+  if (msg.channel.id === AIChannel) {
+    if (msg.author.bot) return;
+
+    // Save the conversation history to the conversationhistory variable
+    let conversationHistory = "";
+
+    // Get the conversation history for the user
+    conversation.findOne({ userId: msg.author.id }, (error, conversation) => {
+      if (error) {
+        console.error(error);
+      } else if (conversation) {
+        // Convert the conversation data to a string
+        conversation.conversation.forEach((item) => {
+          conversationHistory += `customer: ${item.question}\nai: ${item.answer}\n`;
+        });
+      } else {
+        console.log("No conversation history found");
+      }
+    });
+
+    //generate a code to find the user id from the mongo db and get the data from the db
+    const conversationData = await conversation.findOne({
+      userId: msg.author.id,
+    });
+
+    // Pre-process the input question
+    const question = msg.content;
+    const questionVector = somePreprocessingFunction(question);
+
+    // Calculate cosine similarity between the input question and the pre-defined FAQ
+    const similarities = [];
+    for (let i = 0; i < faqVectors.length; i++) {
+      similarities.push(cosineSimilarity(questionVector, faqVectors[i]));
+    }
+
+    // Make sure that there's at least one FAQ with a non-zero cosine similarity score
+    const maxSimilarity = Math.max(...similarities);
+
+    const questionWords =
+      /\b(how|what|why|when|where|which|whom|whose|is|are|do|did|does|can|could|should|would|have|has|had|was|were|am|if|whether|will|shall)\b/i;
+
+    if (!questionWords.test(msg.content)) {
+      // Select the FAQ with the highest cosine similarity score as the most relevant answer
+      const index = similarities.indexOf(Math.max(...similarities));
+
+      const prompt = `You are talking to a person who is asking you questions about your product and you are answering them with the most relevant answer from the FAQ which is ${faq[index].answer}
+      
+      ${conversationHistory}
+  
+      customer: ${msg.content}
+      steve: `;
+
+      const answer = await ask(prompt); //prompt GPT-3
+
+      if (!conversationData) {
+        const newConversation = new conversation({
+          userId: msg.author.id,
+          conversation: {
+            customer: question,
+            ai: answer,
+          },
+        });
+
+        await newConversation.save().then(async () => {
+          await msg.channel.sendTyping();
+          await wait(2000);
+          await msg.reply({
+            content: answer,
+            components: [resetButton],
+          });
+        });
+      } else {
+        //add the new conversation to the db
+        conversationData.conversation.push({
+          customer: question,
+          ai: answer,
+        });
+
+        await conversationData.save().then(async () => {
+          await msg.channel.sendTyping();
+          await wait(2000);
+          await msg.reply({
+            content: answer,
+            components: [resetButton],
+          });
+        });
+      }
+    } else {
+      if (maxSimilarity === 0) {
+        //add the new conversation to the db
+        if (!conversationData) {
+          const newConversation = new conversation({
+            userId: msg.author.id,
+            conversation: {
+              customer: msg.content,
+              ai: `Sorry, I can only help you with FAQs related to our services. Please ask ${modRole} instead.`,
+            },
+          });
+
+          await newConversation.save().then(async () => {
+            await msg.channel.sendTyping();
+            await wait(2000);
+            await msg.reply({
+              content: `Sorry, I can only help you with FAQs related to our services. Please ask ${modRole} instead.`,
+              components: [resetButton],
+            });
+          });
+        } else {
+          conversationData.conversation.push({
+            customer: question,
+            ai: `Sorry, I can only help you with FAQs related to our services. Please ask ${modRole} instead.`,
+          });
+
+          await conversationData.save().then(async () => {
+            await msg.channel.sendTyping();
+            await wait(2000);
+            await msg.reply({
+              content: `Sorry, I can only help you with FAQs related to our services. Please ask ${modRole} instead.`,
+              components: [resetButton],
+            });
+          });
+        }
+        return;
+      } else {
+        // Select the FAQ with the highest cosine similarity score as the most relevant answer
+        const index = similarities.indexOf(Math.max(...similarities));
+
+        const prompt = `Act as an AI chatbot named Steve that is positive, friendly and helpful. You are talking to a person who is asking you questions about your product and you are answering them with the most relevant answer from the FAQ which is ${faq[index].answer}
+      
+      ${conversationHistory}
+  
+      customer: ${msg.content}
+      steve: `;
+
+        const answer = await ask(prompt); //prompt GPT-3
+
+        if (!conversationData) {
+          const newConversation = new conversation({
+            userId: msg.author.id,
+            conversation: {
+              customer: question,
+              ai: answer,
+            },
+          });
+
+          await newConversation.save().then(async () => {
+            await msg.channel.sendTyping();
+            await wait(2000);
+            await msg.reply({
+              content: answer,
+              components: [resetButton],
+            });
+          });
+        } else {
+          //add the new conversation to the db
+          conversationData.conversation.push({
+            customer: question,
+            ai: answer,
+          });
+
+          await conversationData.save().then(async () => {
+            await msg.channel.sendTyping();
+            await wait(2000);
+            await msg.reply({
+              content: answer,
+              components: [resetButton],
+            });
+          });
+        }
+      }
+    }
+  }
+
   //--- FOR UPDATING MEMBERS COUNT AS A CHANNEL NAME ----
   if (
     msg.content === "!updateCount" &&
@@ -1203,113 +1546,49 @@ client.on("messageCreate", async (msg) => {
       components: [row],
     });
   }
-
-  //--- FOR AI CONVERSATION ---
-  const AIChannel = "1057559988840701952";
-
-  const resetButton = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("reset")
-      .setLabel("Reset Convo")
-      .setEmoji("🔄")
-      .setStyle(ButtonStyle.Primary)
-  );
-
-  //find a role with the name "Community Moderator"
-  const modRole = msg.guild.roles.cache.find(
-    (role) => role.name === "moderator"
-  );
-
-  if (msg.channel.id === AIChannel) {
-    if (msg.author.bot) return;
-
-    // Pre-process the input question
-    const question = msg.content;
-    const questionVector = somePreprocessingFunction(question);
-
-    // Calculate cosine similarity between the input question and the pre-defined FAQ
-    const similarities = [];
-    for (let i = 0; i < faqVectors.length; i++) {
-      similarities.push(cosineSimilarity(questionVector, faqVectors[i]));
-    }
-
-    // Select the FAQ with the highest cosine similarity score as the most relevant answer
-    const index = similarities.indexOf(Math.max(...similarities));
-
-    if (index === -1) {
-      await msg.reply({
-        content: `Sorry, I don't know the answer to that question. Please ask ${modRole} instead.`,
-      });
-
-      return;
-    } else {
-      let conversationHistory = "";
-
-      // Get the conversation history for the user
-      conversation.findOne({ userId: msg.author.id }, (error, conversation) => {
-        if (error) {
-          console.error(error);
-        } else if (conversation) {
-          // Convert the conversation data to a string
-          conversation.conversation.forEach((item) => {
-            conversationHistory += `customer: ${item.question}\nai: ${item.answer}\n`;
-          });
-        } else {
-          console.log("No conversation history found");
-        }
-      });
-
-      const prompt = `Act as an AI chatbot that is positive, friendly and helpful. You are talking to a person who is asking you questions about your product and you are answering them with the most relevant answer from the FAQ which is ${faq[index].answer}
-    
-    ${conversationHistory}
-
-    customer: ${msg.content}
-    ai: `;
-
-      const answer = await ask(prompt); //prompt GPT-3
-
-      //generate a code to find the user id from the mongo db and get the data from the db
-      const conversationData = await conversation.findOne({
-        userId: msg.author.id,
-      });
-
-      if (!conversationData) {
-        const newConversation = new conversation({
-          userId: msg.author.id,
-          conversation: {
-            customer: question,
-            ai: answer,
-          },
-        });
-
-        await newConversation.save().then(async () => {
-          await msg.channel.sendTyping();
-          await wait(2000);
-          await msg.reply({
-            content: answer,
-            components: [resetButton],
-          });
-        });
-      } else {
-        //add the new conversation to the db
-        conversationData.conversation.push({
-          customer: question,
-          ai: answer,
-        });
-
-        await conversationData.save().then(async () => {
-          await msg.channel.sendTyping();
-          await wait(2000);
-          await msg.reply({
-            content: answer,
-            components: [resetButton],
-          });
-        });
-      }
-    }
-  }
 });
 
+//------------ HANDLING MSG EVENTS ----------------
+client.on(Events.MessageCreate, async (message) => {
+  if (message.author.bot) return;
+
+  stickySchema.findOne({ ChannelID: message.channel.id }, async (err, data) => {
+    if (err) throw err;
+
+    if (!data) return;
+
+    let channel = data.ChannelID;
+    let cachedChannel = client.channels.cache.get(channel);
+
+    const embed = new EmbedBuilder()
+      .setDescription(data.Message)
+      .setFooter({ text: `This is a sticky message.` });
+
+    if (message.channel.id === channel) {
+      data.CurrentCount += 1;
+      data.save();
+
+      if (data.CurrentCount > data.MaxCount) {
+        try {
+          await client.channels.cache
+            .get(channel)
+            .messages.fetch(data.LastMessageID)
+            .then(async (msg) => {
+              await msg.delete();
+            });
+
+          let newMessage = await cachedChannel.send({ embeds: [embed] });
+
+          data.LastMessageID = newMessage.id;
+          data.CurrentCount = 0;
+          data.save();
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    }
+  });
+});
 //------------ HANDLING EVENTS ----------------
 client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isButton()) {
