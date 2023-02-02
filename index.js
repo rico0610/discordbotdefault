@@ -580,7 +580,16 @@ const rolesEmojis = {
 client.on("messageReactionAdd", async (reaction, user) => {
   const member = await reaction.message.guild.members.fetch(user.id);
 
-  if (member.user.bot) return;
+  if (user.bot) return;
+
+  if (reaction.message.partial) {
+    try {
+      await reaction.message.fetch();
+    } catch (error) {
+      console.log("Something went wrong when fetching the message: ", error);
+      return;
+    }
+  }
 
   // Check if the user already has another role based on the given object
   const userRoles = member.roles.cache.filter((role) => {
@@ -607,6 +616,53 @@ client.on("messageReactionAdd", async (reaction, user) => {
       (r) => r.name === rolesEmojis[emoji]
     );
     reaction.message.guild.members.cache.get(user.id).roles.add(role);
+  }
+
+  // add a check for reaction and reaction should be given by the Admin.
+  // Get the user who reacted
+  const guildMember = reaction.message.guild.members.cache.get(user.id);
+
+  // Check if the user who reacted is a member of the guild
+  if (!guildMember) return console.log("User not found");
+
+  if (
+    reaction.emoji.name === "✅" &&
+    guildMember.roles.cache.some((role) => role.name === "Admin")
+  ) {
+    try {
+      // check if there is a reaction ❌ on the message and remove it
+      if (reaction.message.reactions.cache.get("❌")) {
+        reaction.message.reactions.cache.get("❌").remove();
+      }
+
+      const replyMessage = reaction.message;
+      const questionMessage = await replyMessage.channel.messages.fetch(
+        replyMessage.reference.messageId
+      );
+      const question = questionMessage.content;
+      const answer = replyMessage.content;
+
+      // add the question and answer to an existing document in the database
+      const newFaq = new faqs({
+        question: question,
+        answer: answer,
+      });
+
+      newFaq.save((error) => {
+        if (error) {
+          console.log(error);
+        } else {
+          console.log("New FAQ added to database");
+        }
+      });
+
+      await replyMessage.react("💾");
+    } catch (error) {
+      console.log("Something went wrong when fetching the message: ", error);
+      return;
+    }
+  } else {
+    console.log("Not an admin");
   }
 });
 
@@ -1054,66 +1110,6 @@ function someConversionFunction(tokens) {
   return vector;
 }
 
-//--- FOR ADDING NEW Q AND A TO THE DATABASE ----
-
-client.on("messageReactionAdd", async (reaction, user) => {
-  if (user.bot) return;
-  if (reaction.message.partial) {
-    try {
-      await reaction.message.fetch();
-    } catch (error) {
-      console.log("Something went wrong when fetching the message: ", error);
-      return;
-    }
-  }
-
-  // add a check for reaction and reaction should be given by the Admin.
-  // Get the user who reacted
-  const guildMember = reaction.message.guild.members.cache.get(user.id);
-
-  // Check if the user who reacted is a member of the guild
-  if (!guildMember) return console.log("User not found");
-
-  if (
-    reaction.emoji.name === "✅" &&
-    guildMember.roles.cache.some((role) => role.name === "Admin")
-  ) {
-    try {
-      // check if there is a reaction ❌ on the message and remove it
-      if (reaction.message.reactions.cache.get("❌")) {
-        reaction.message.reactions.cache.get("❌").remove();
-      }
-
-      const replyMessage = reaction.message;
-      const questionMessage = await replyMessage.channel.messages.fetch(
-        replyMessage.reference.messageId
-      );
-      const question = questionMessage.content;
-      const answer = replyMessage.content;
-
-      // add the question and answer to an existing document in the database
-      const newFaq = new faqs({
-        question: question,
-        answer: answer,
-      });
-
-      newFaq.save((error) => {
-        if (error) {
-          console.log(error);
-        } else {
-          console.log("New FAQ added to database");
-        }
-      });
-
-      await replyMessage.react("💾");
-    } catch (error) {
-      console.log("Something went wrong when fetching the message: ", error);
-      return;
-    }
-  } else {
-    console.log("Not an admin");
-  }
-});
 //-------POSTING AND AI
 client.on("messageCreate", async (msg) => {
   //-- FOR STORING FAQ DATA IN MONGODB VIA ATTACHMENT FILES ----
