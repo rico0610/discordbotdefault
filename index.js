@@ -768,6 +768,8 @@ client.on("messageReactionAdd", async (reaction, user) => {
           for (let i = 0; i < faq.length; i++) {
             faqVectors.push(somePreprocessingFunction(faq[i].question));
           }
+
+          console.log(faq);
         });
 
       await replyMessage.react("💾");
@@ -949,7 +951,7 @@ client.on("messageCreate", async (msg) => {
   }
 
   //--- FOR AI CONVERSATION ---
-  const AIChannel = "1057559988840701952";
+  const AIChannel = "1069876640877920327";
 
   const resetButton = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -1875,9 +1877,6 @@ client.on("guildMemberAdd", async (member) => {
       member.kick();
     } else {
       clearTimeout();
-
-      member.roles.remove(unverifiedRole);
-
       member.guild.channels.cache
         .find((channel) => channel.id === "1064744958487183410")
         .createInvite({ maxAge: 0 })
