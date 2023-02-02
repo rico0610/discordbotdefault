@@ -610,17 +610,58 @@ client.on("messageReactionAdd", async (reaction, user) => {
   }
 });
 
-client.on("messageReactionRemove", (reaction, user) => {
+client.on("messageReactionRemove", async (reaction, user) => {
   const emoji = reaction.emoji.name;
   const member = reaction.message.guild.members.cache.get(user.id);
 
-  if (member.user.bot) return;
+  if (user.bot) return;
 
   if (rolesEmojis[emoji]) {
     const role = reaction.message.guild.roles.cache.find(
       (r) => r.name === rolesEmojis[emoji]
     );
     member.roles.remove(role);
+  }
+
+  //--- getting the reacted message and reply --
+  const replyMessage = reaction.message;
+  const questionMessage = await replyMessage.channel.messages.fetch(
+    replyMessage.reference.messageId
+  );
+  const question = questionMessage.content;
+  const answer = replyMessage.content;
+
+  // check if the admin removed the checked reaction
+  // Get the user who reacted
+  const guildMember = reaction.message.guild.members.cache.get(user.id);
+
+  // Check if the user who reacted is a member of the guild
+  if (!guildMember) return console.log("User not found");
+
+  if (
+    reaction.emoji.name === "✅" &&
+    guildMember.roles.cache.some((role) => role.name === "Admin")
+  ) {
+    // check if there is a reaction 💾 on the message and remove it
+    if (reaction.message.reactions.cache.get("💾")) {
+      reaction.message.reactions.cache.get("💾").remove();
+    }
+
+    // delete the question and answer from the mongoDB database
+
+    try {
+      faqs.deleteOne(
+        { question: question, answer: answer },
+        function (err, obj) {
+          if (err) throw err;
+          console.log("1 document deleted");
+        }
+      );
+
+      await replyMessage.react("❌");
+    } catch (err) {
+      console.log(err);
+    }
   }
 });
 
@@ -964,7 +1005,7 @@ async function getFaq() {
 
 async function main() {
   //get the channel using the channel id
-  const channel = await client.channels.fetch("1057837697948983446");
+  const channel = await client.channels.fetch("1054312191689510983");
 
   const faq = await getFaq();
   if (faq.length > 0) {
@@ -1025,19 +1066,52 @@ client.on("messageReactionAdd", async (reaction, user) => {
       return;
     }
   }
-  if (reaction.emoji.name === "✅") {
-    const questionMessage = reaction.message;
-    const answerMessage = await questionMessage.channel.fetchMessage(
-      questionMessage.reply.id
-    );
-    const question = questionMessage.content;
-    const answer = answerMessage.content;
-    const qaMessage = await QAMessage.create({
-      question,
-      answer,
-      user: user.id,
-    });
-    console.log(`QA message has been saved: ${qaMessage}`);
+
+  // add a check for reaction and reaction should be given by the Admin.
+  // Get the user who reacted
+  const guildMember = reaction.message.guild.members.cache.get(user.id);
+
+  // Check if the user who reacted is a member of the guild
+  if (!guildMember) return console.log("User not found");
+
+  if (
+    reaction.emoji.name === "✅" &&
+    guildMember.roles.cache.some((role) => role.name === "Admin")
+  ) {
+    try {
+      // check if there is a reaction ❌ on the message and remove it
+      if (reaction.message.reactions.cache.get("❌")) {
+        reaction.message.reactions.cache.get("❌").remove();
+      }
+
+      const replyMessage = reaction.message;
+      const questionMessage = await replyMessage.channel.messages.fetch(
+        replyMessage.reference.messageId
+      );
+      const question = questionMessage.content;
+      const answer = replyMessage.content;
+
+      // add the question and answer to an existing document in the database
+      const newFaq = new faqs({
+        question: question,
+        answer: answer,
+      });
+
+      newFaq.save((error) => {
+        if (error) {
+          console.log(error);
+        } else {
+          console.log("New FAQ added to database");
+        }
+      });
+
+      await replyMessage.react("💾");
+    } catch (error) {
+      console.log("Something went wrong when fetching the message: ", error);
+      return;
+    }
+  } else {
+    console.log("Not an admin");
   }
 });
 //-------POSTING AND AI
@@ -1154,7 +1228,7 @@ client.on("messageCreate", async (msg) => {
   }
 
   //--- FOR AI CONVERSATION ---
-  const AIChannel = "1057559988840701952";
+  const AIChannel = "1069876640877920327";
 
   const resetButton = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -1169,7 +1243,10 @@ client.on("messageCreate", async (msg) => {
     (role) => role.name === "moderator"
   );
 
-  if (msg.channel.id === AIChannel) {
+  if (
+    msg.channel.id === AIChannel &&
+    !msg.member.roles.cache.some((role) => role.name === "Admin")
+  ) {
     if (msg.author.bot) return;
 
     // Save the conversation history to the conversationhistory variable
@@ -1211,94 +1288,19 @@ client.on("messageCreate", async (msg) => {
       /\b(how|what|why|when|where|which|whom|whose|is|are|do|did|does|can|could|should|would|have|has|had|was|were|am|if|whether|will|shall)\b/i;
 
     if (!questionWords.test(msg.content)) {
-      // Select the FAQ with the highest cosine similarity score as the most relevant answer
-      const index = similarities.indexOf(Math.max(...similarities));
-
-      const prompt = `You are talking to a person who is asking you questions about your product and you are answering them with the most relevant answer from the FAQ which is ${faq[index].answer}
-      
-      ${conversationHistory}
-  
-      customer: ${msg.content}
-      steve: `;
-
-      const answer = await ask(prompt); //prompt GPT-3
-
-      if (!conversationData) {
-        const newConversation = new conversation({
-          userId: msg.author.id,
-          conversation: {
-            customer: question,
-            ai: answer,
-          },
-        });
-
-        await newConversation.save().then(async () => {
-          await msg.channel.sendTyping();
-          await wait(2000);
-          await msg.reply({
-            content: answer,
-            components: [resetButton],
-          });
-        });
-      } else {
-        //add the new conversation to the db
-        conversationData.conversation.push({
-          customer: question,
-          ai: answer,
-        });
-
-        await conversationData.save().then(async () => {
-          await msg.channel.sendTyping();
-          await wait(2000);
-          await msg.reply({
-            content: answer,
-            components: [resetButton],
-          });
-        });
-      }
-    } else {
-      if (maxSimilarity === 0) {
-        //add the new conversation to the db
-        if (!conversationData) {
-          const newConversation = new conversation({
-            userId: msg.author.id,
-            conversation: {
-              customer: msg.content,
-              ai: `Sorry, I can only help you with FAQs related to our services. Please ask ${modRole} instead.`,
-            },
-          });
-
-          await newConversation.save().then(async () => {
-            await msg.channel.sendTyping();
-            await wait(2000);
-            await msg.reply({
-              content: `Sorry, I can only help you with FAQs related to our services. Please ask ${modRole} instead.`,
-              components: [resetButton],
-            });
-          });
-        } else {
-          conversationData.conversation.push({
-            customer: question,
-            ai: `Sorry, I can only help you with FAQs related to our services. Please ask ${modRole} instead.`,
-          });
-
-          await conversationData.save().then(async () => {
-            await msg.channel.sendTyping();
-            await wait(2000);
-            await msg.reply({
-              content: `Sorry, I can only help you with FAQs related to our services. Please ask ${modRole} instead.`,
-              components: [resetButton],
-            });
-          });
-        }
-        return;
-      } else {
+      try {
         // Select the FAQ with the highest cosine similarity score as the most relevant answer
         const index = similarities.indexOf(Math.max(...similarities));
 
-        const prompt = `Act as an AI chatbot named Steve that is positive, friendly and helpful. You are talking to a person who is asking you questions about your product and you are answering them with the most relevant answer from the FAQ which is ${faq[index].answer}
+        const prompt = `You are talking to a person who is asking you questions about your product and you are answering them with the most relevant answer from the FAQ which is ${faq[index].answer}
       
       ${conversationHistory}
+
+      customer: Thank you for your help!
+      steve: Is there anything else I can help you with?
+
+      customer: No not for now.
+      steve: Thank you for your time! Have a nice day!
   
       customer: ${msg.content}
       steve: `;
@@ -1337,6 +1339,101 @@ client.on("messageCreate", async (msg) => {
               components: [resetButton],
             });
           });
+        }
+      } catch (error) {
+        console.error(error);
+        return;
+      }
+    } else {
+      if (maxSimilarity === 0) {
+        try {
+          //add the new conversation to the db
+          if (!conversationData) {
+            const newConversation = new conversation({
+              userId: msg.author.id,
+              conversation: {
+                customer: msg.content,
+                ai: `Sorry, I can only help you with FAQs related to our services. Please ask ${modRole} instead.`,
+              },
+            });
+
+            await newConversation.save().then(async () => {
+              await msg.channel.sendTyping();
+              await wait(2000);
+              await msg.reply({
+                content: `Sorry, I can only help you with FAQs related to our services. Please ask ${modRole} instead.`,
+                components: [resetButton],
+              });
+            });
+          } else {
+            conversationData.conversation.push({
+              customer: question,
+              ai: `Sorry, I can only help you with FAQs related to our services. Please ask ${modRole} instead.`,
+            });
+
+            await conversationData.save().then(async () => {
+              await msg.channel.sendTyping();
+              await wait(2000);
+              await msg.reply({
+                content: `Sorry, I can only help you with FAQs related to our services. Please ask ${modRole} instead.`,
+                components: [resetButton],
+              });
+            });
+          }
+          return;
+        } catch (err) {
+          console.error(err);
+        }
+      } else {
+        try {
+          // Select the FAQ with the highest cosine similarity score as the most relevant answer
+          const index = similarities.indexOf(Math.max(...similarities));
+
+          const prompt = `Act as an AI chatbot named Steve that is positive, friendly and helpful. You are talking to a person who is asking you questions about your product and you are answering them with the most relevant answer from the FAQ which is ${faq[index].answer}
+      
+      ${conversationHistory}
+  
+      customer: ${msg.content}
+      steve: `;
+
+          const answer = await ask(prompt); //prompt GPT-3
+
+          if (!conversationData) {
+            const newConversation = new conversation({
+              userId: msg.author.id,
+              conversation: {
+                customer: question,
+                ai: answer,
+              },
+            });
+
+            await newConversation.save().then(async () => {
+              await msg.channel.sendTyping();
+              await wait(2000);
+              await msg.reply({
+                content: answer,
+                components: [resetButton],
+              });
+            });
+          } else {
+            //add the new conversation to the db
+            conversationData.conversation.push({
+              customer: question,
+              ai: answer,
+            });
+
+            await conversationData.save().then(async () => {
+              await msg.channel.sendTyping();
+              await wait(2000);
+              await msg.reply({
+                content: answer,
+                components: [resetButton],
+              });
+            });
+          }
+        } catch (error) {
+          console.error(error);
+          return;
         }
       }
     }
