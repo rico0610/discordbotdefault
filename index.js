@@ -568,454 +568,17 @@ function makeBotMove() {
 // });
 
 //---- REACTION ROLES ----
-const rolesEmojis = {
-  "🇹🇷": "turkey",
-  "🇮🇩": "indonesia",
-  "🇻🇳": "vietnam",
-  "🇷🇺": "russia",
-  "🇵🇭": "philippines",
-  "🇨🇳": "china",
-};
+// const rolesEmojis = {
+//   "🇹🇷": "turkey",
+//   "🇮🇩": "indonesia",
+//   "🇻🇳": "vietnam",
+//   "🇷🇺": "russia",
+//   "🇵🇭": "philippines",
+//   "🇨🇳": "china",
+// };
 
-client.on("messageReactionAdd", async (reaction, user) => {
-  if (user.bot) return;
+//-- FOR AI FEATURES ---
 
-  if (reaction.message.partial) {
-    try {
-      await reaction.message.fetch();
-    } catch (error) {
-      console.log("Something went wrong when fetching the message: ", error);
-      return;
-    }
-  }
-
-  // // Check if the user already has another role based on the given object
-  // const member = await reaction.message.guild.members.fetch(user.id);
-  // const userRoles = member.roles.cache.filter((role) => {
-  //   return Object.values(rolesEmojis).includes(role.name);
-  // });
-
-  // const currentRole = member.roles.cache.find((r) =>
-  //   Object.values(rolesEmojis).includes(r.name)
-  // );
-
-  // // If the user already has another role based on the given object, ask them to remove it
-  // if (userRoles.size > 0 && currentRole) {
-  //   try {
-  //     await reaction.users.remove(user.id);
-  //   } catch (error) {
-  //     console.error(`Could not send message to ${member.user.username}`);
-  //   }
-  //   return;
-  // }
-
-  // const emoji = reaction.emoji.name;
-  // if (rolesEmojis[emoji]) {
-  //   const role = reaction.message.guild.roles.cache.find(
-  //     (r) => r.name === rolesEmojis[emoji]
-  //   );
-  //   reaction.message.guild.members.cache.get(user.id).roles.add(role);
-  // }
-
-  // add a check for reaction and reaction should be given by the Admin.
-  // Get the user who reacted
-  const guildMember = reaction.message.guild.members.cache.get(user.id);
-
-  // Check if the user who reacted is a member of the guild
-  if (!guildMember) return console.log("User not found");
-
-  if (
-    reaction.emoji.name === "✅" &&
-    guildMember.roles.cache.some((role) => role.name === "Admin")
-  ) {
-    try {
-      // check if there is a reaction ❌ on the message and remove it
-      if (reaction.message.reactions.cache.get("❌")) {
-        reaction.message.reactions.cache.get("❌").remove();
-      }
-
-      const replyMessage = reaction.message;
-      const questionMessage = await replyMessage.channel.messages.fetch(
-        replyMessage.reference.messageId
-      );
-      const question = questionMessage.content;
-      const answer = replyMessage.content;
-
-      // add the question and answer to an existing document in the database
-      const newFaq = new faqs({
-        question: question,
-        answer: answer,
-      });
-
-      newFaq.save((error) => {
-        if (error) {
-          console.log(error);
-        } else {
-          console.log("New FAQ added to database");
-        }
-      });
-
-      await replyMessage.react("💾");
-    } catch (error) {
-      console.log("Something went wrong when fetching the message: ", error);
-      return;
-    }
-  } else {
-    console.log("Not an admin");
-  }
-});
-
-client.on("messageReactionRemove", async (reaction, user) => {
-  // const emoji = reaction.emoji.name;
-  // const member = reaction.message.guild.members.cache.get(user.id);
-
-  // if (user.bot) return;
-
-  // if (rolesEmojis[emoji]) {
-  //   const role = reaction.message.guild.roles.cache.find(
-  //     (r) => r.name === rolesEmojis[emoji]
-  //   );
-  //   member.roles.remove(role);
-  // }
-
-  //--- getting the reacted message and reply --
-  const replyMessage = reaction.message;
-  const questionMessage = await replyMessage.channel.messages.fetch(
-    replyMessage.reference.messageId
-  );
-  const question = questionMessage.content;
-  const answer = replyMessage.content;
-
-  // check if the admin removed the checked reaction
-  // Get the user who reacted
-  const guildMember = reaction.message.guild.members.cache.get(user.id);
-
-  // Check if the user who reacted is a member of the guild
-  if (!guildMember) return console.log("User not found");
-
-  if (
-    reaction.emoji.name === "✅" &&
-    guildMember.roles.cache.some((role) => role.name === "Admin")
-  ) {
-    // check if there is a reaction 💾 on the message and remove it
-    if (reaction.message.reactions.cache.get("💾")) {
-      reaction.message.reactions.cache.get("💾").remove();
-    }
-
-    // delete the question and answer from the mongoDB database
-
-    try {
-      faqs.deleteOne(
-        { question: question, answer: answer },
-        function (err, obj) {
-          if (err) throw err;
-          console.log("1 document deleted");
-        }
-      );
-
-      await replyMessage.react("❌");
-    } catch (err) {
-      console.log(err);
-    }
-  }
-});
-
-client.on("messageCreate", async (msg) => {
-  // Ignore messages that do not start with the '!ttt' prefix
-  if (!msg.content.startsWith("!mark")) return;
-
-  // Split the message into arguments by spaces
-  const args = msg.content.split(" ");
-
-  // Get the row and column indices from the arguments
-  const row = parseInt(args[1]);
-  const col = parseInt(args[2]);
-
-  // Check if the indices are valid and the cell is empty
-  if (row >= 0 && row < 3 && col >= 0 && col < 3 && board[row][col] === "") {
-    // Place the current player's symbol on the board
-    board[row][col] = currentPlayer;
-
-    // Print the current state of the board
-    msg.channel.send(printBoard());
-
-    // Check if the current player has won
-    if (checkWin(currentPlayer)) {
-      msg.channel.send({
-        embeds: [
-          new EmbedBuilder().setDescription(`Player ${currentPlayer} has won!`),
-        ],
-      });
-      resetGame();
-    } else if (checkDraw()) {
-      msg.channel.send({
-        embeds: [new EmbedBuilder().setDescription(`The game is a draw!`)],
-      });
-      resetGame();
-    } else {
-      lastPlayer = currentPlayer;
-      currentPlayer = currentPlayer === "X" ? botSymbol : "X";
-
-      // If it is the bot's turn, make a move
-      if (currentPlayer === botSymbol) {
-        makeBotMove();
-      } else {
-        msg.channel.send({
-          embeds: [
-            new EmbedBuilder().setDescription(
-              `It is now player ${currentPlayer}'s turn.`
-            ),
-          ],
-        });
-      }
-    }
-  } else {
-    msg.channel.send({
-      embeds: [new EmbedBuilder().setDescription("Invalid move!")],
-    });
-  }
-});
-
-//---- FOR TOSS A COIN GAME -----
-client.on("messageCreate", async (msg) => {
-  //--- FOR TOSS A COIN GAME ----
-  if (
-    msg.content === "!toss" &&
-    msg.author.bot &&
-    msg.channel.id === gameChannel
-  ) {
-    const coin = Math.floor(Math.random() * 2);
-
-    const guessButton = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("heads")
-        .setLabel("Heads")
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId("tails")
-        .setLabel("Tails")
-        .setStyle(ButtonStyle.Success)
-    );
-
-    if (coin === 0) {
-      coinSide = "heads";
-
-      console.log(coinSide);
-
-      msg
-        .reply({
-          embeds: [
-            new EmbedBuilder()
-              .setTitle(`TOSSING COIN...`)
-              .setImage(
-                "https://media.tenor.com/JlDkKFwn8AoAAAAC/toss-coin-flip.gif"
-              ),
-          ],
-        })
-        .then(async (sentMessage) => {
-          await wait(2500);
-          sentMessage.delete();
-
-          await msg.channel.send({
-            embeds: [
-              new EmbedBuilder()
-                .setTitle(`What's your guess?`)
-                .setThumbnail(
-                  "https://media.tenor.com/Ji8vLfj669IAAAAi/thinking-goma.gif"
-                ),
-            ],
-            components: [guessButton],
-          });
-        });
-
-      return;
-    } else {
-      coinSide = "tails";
-
-      console.log(coinSide);
-
-      msg
-        .reply({
-          embeds: [
-            new EmbedBuilder()
-              .setTitle(`TOSSING COIN...`)
-              .setImage(
-                "https://media.tenor.com/JlDkKFwn8AoAAAAC/toss-coin-flip.gif"
-              ),
-          ],
-        })
-        .then(async (sentMessage) => {
-          await wait(2500);
-          sentMessage.delete();
-
-          await msg.channel.send({
-            embeds: [
-              new EmbedBuilder()
-                .setTitle(`What's your guess?`)
-                .setThumbnail(
-                  "https://media.tenor.com/Ji8vLfj669IAAAAi/thinking-goma.gif"
-                ),
-            ],
-            components: [guessButton],
-          });
-        });
-
-      return;
-    }
-  }
-});
-
-//---- FOR LEVEL AND XP ---
-client.on("messageCreate", async (msg) => {
-  // ignore messages from bots
-  if (msg.author.bot) return;
-
-  //-- FOR LEVELING UP AND EARNING XP POINTS --
-  // Next, we need to find the user's xp and level in the database
-  userLevel.findOne({ userID: msg.author.id }, (err, user) => {
-    if (err) {
-      console.error(err);
-      return;
-    }
-
-    // If the user is not in the database, create a new entry for them
-    if (!user) {
-      const newUser = new userLevel({
-        userID: msg.author.id,
-        xp: 10,
-        level: 0,
-        lastMessage: Date.now(),
-      });
-
-      newUser.save((err, user) => {
-        if (err) {
-          console.error(err);
-          return;
-        }
-        console.log(`Created new user entry for ${msg.author.username}`);
-      });
-    } else {
-      // If the user is in the database, update their xp and level
-      // Check if the user has already earned xp in the past minute
-      if (!user.lastMessage || Date.now() - user.lastMessage > 60000) {
-        user.xp += 10;
-        user.lastMessage = Date.now();
-        const xpNeeded = user.level * 155 + 100; // xp needed to level up
-        if (user.xp >= xpNeeded) {
-          user.level += 1;
-          user.xp = 0;
-        }
-        user.save((err, user) => {
-          if (err) {
-            console.error(err);
-            return;
-          }
-          console.log(`Updated xp and level for ${msg.author.username}`);
-        });
-      }
-    }
-  });
-
-  //-- FOR ADMIN DELETING THE DATA ----
-  if (msg.content === "!deleteData") {
-    if (msg.member.roles.cache.some((role) => role.name === "Admin")) {
-      // Delete all the data in the database
-      userLevel.deleteMany({}, (err) => {
-        if (err) {
-          console.error(err);
-          return;
-        }
-        msg.reply("All data deleted from the database.");
-      });
-      return;
-    } else {
-      msg.reply(`You're not allowed to delete the data`);
-    }
-  }
-
-  //-- FOR SETTING UP THE LEVEL AND XP CHECKING CHANNEL --
-  const channelForCheckingLevel = "1060421595702767616";
-
-  // check if member sent "!level" or "!xp"
-  if (msg.content === "!level" && msg.channel.id === channelForCheckingLevel) {
-    // Find the user's level in the database
-    userLevel.findOne({ userID: msg.author.id }, (err, user) => {
-      if (err) {
-        console.error(err);
-        return;
-      }
-      if (user) {
-        msg.reply({
-          embeds: [
-            new EmbedBuilder().setDescription(
-              `Your level is **${user.level}** 🎉`
-            ),
-          ],
-        });
-      } else {
-        msg.reply({
-          embeds: [
-            new EmbedBuilder().setDescription(
-              `You have not earned any xp yet.`
-            ),
-          ],
-        });
-      }
-    });
-    return;
-  } else if (
-    msg.content === "!xp" &&
-    msg.channel.id === channelForCheckingLevel
-  ) {
-    // Find the user's xp in the database
-    userLevel.findOne({ userID: msg.author.id }, (err, user) => {
-      if (err) {
-        console.error(err);
-        return;
-      }
-      if (user) {
-        msg.reply({
-          embeds: [
-            new EmbedBuilder().setDescription(
-              `Your current XP is **${user.xp}** ⭐️`
-            ),
-          ],
-        });
-      } else {
-        msg.reply({
-          embeds: [
-            new EmbedBuilder().setDescription(
-              `You have not earned any XP yet.`
-            ),
-          ],
-        });
-      }
-    });
-    return;
-  }
-});
-
-// client.on("ready", async () => {
-//   try {
-//     let message = await client.channels.cache
-//       .get(channelId)
-//       .messages.fetch("1068119516409761853");
-//     // await message.react("🇵🇭");
-//     // await message.react("🇨🇳");
-//     await message.reactions.cache.get("🇵🇭").remove();
-//     await message.reactions.cache.get("🇨🇳").remove();
-//     console.log("Reaction updated");
-//   } catch (error) {
-//     console.error(`Error adding reaction to message: ${error}`);
-//   }
-// });
-
-// Pre-process the pre-defined FAQ data into numerical representations
-// let data = fs.readFileSync("./faqs.txt", "utf8");
-// let faqData = JSON.parse(data); //---- INITIALLY IMPORTING THE PROJECTLIST JS FILE -----
-// let faq = faqData.slice();
-
-//---- FOR AI DATABASE ----
 let faq = [
   {
     question: "Who created you?",
@@ -1109,7 +672,170 @@ function someConversionFunction(tokens) {
   return vector;
 }
 
-//-------POSTING AND AI
+client.on("messageReactionAdd", async (reaction, user) => {
+  if (user.bot) return;
+
+  if (reaction.message.partial) {
+    try {
+      await reaction.message.fetch();
+    } catch (error) {
+      console.log("Something went wrong when fetching the message: ", error);
+      return;
+    }
+  }
+
+  // // Check if the user already has another role based on the given object
+  // const member = await reaction.message.guild.members.fetch(user.id);
+  // const userRoles = member.roles.cache.filter((role) => {
+  //   return Object.values(rolesEmojis).includes(role.name);
+  // });
+
+  // const currentRole = member.roles.cache.find((r) =>
+  //   Object.values(rolesEmojis).includes(r.name)
+  // );
+
+  // // If the user already has another role based on the given object, ask them to remove it
+  // if (userRoles.size > 0 && currentRole) {
+  //   try {
+  //     await reaction.users.remove(user.id);
+  //   } catch (error) {
+  //     console.error(`Could not send message to ${member.user.username}`);
+  //   }
+  //   return;
+  // }
+
+  // const emoji = reaction.emoji.name;
+  // if (rolesEmojis[emoji]) {
+  //   const role = reaction.message.guild.roles.cache.find(
+  //     (r) => r.name === rolesEmojis[emoji]
+  //   );
+  //   reaction.message.guild.members.cache.get(user.id).roles.add(role);
+  // }
+
+  // add a check for reaction and reaction should be given by the Admin.
+  // Get the user who reacted
+  const guildMember = reaction.message.guild.members.cache.get(user.id);
+
+  // Check if the user who reacted is a member of the guild
+  if (!guildMember) return console.log("User not found");
+
+  if (
+    reaction.emoji.name === "✅" &&
+    guildMember.roles.cache.some((role) => role.name === "Admin")
+  ) {
+    try {
+      // check if there is a reaction ❌ on the message and remove it
+      if (reaction.message.reactions.cache.get("❌")) {
+        reaction.message.reactions.cache.get("❌").remove();
+      }
+
+      const replyMessage = reaction.message;
+      const questionMessage = await replyMessage.channel.messages.fetch(
+        replyMessage.reference.messageId
+      );
+      const question = questionMessage.content;
+      const answer = replyMessage.content;
+
+      // add the question and answer to an existing document in the database
+      const newFaq = new faqs({
+        question: question,
+        answer: answer,
+      });
+
+      newFaq.save((error) => {
+        if (error) {
+          console.log(error);
+        } else {
+          console.log("New FAQ added to database");
+        }
+      });
+
+      // fetching the new data from the database
+      faqs
+        .find({})
+        .then(async (result) => {
+          if (result.length > 0) {
+            faq = result;
+
+            console.log("New data fetched from database");
+          } else {
+            console.log("No data found in database");
+
+            return;
+          }
+        })
+        .then(() => {
+          for (let i = 0; i < faq.length; i++) {
+            faqVectors.push(somePreprocessingFunction(faq[i].question));
+          }
+        });
+
+      await replyMessage.react("💾");
+    } catch (error) {
+      console.log("Something went wrong when fetching the message: ", error);
+      return;
+    }
+  } else {
+    console.log("Not an admin");
+  }
+});
+
+client.on("messageReactionRemove", async (reaction, user) => {
+  // const emoji = reaction.emoji.name;
+  // const member = reaction.message.guild.members.cache.get(user.id);
+
+  // if (user.bot) return;
+
+  // if (rolesEmojis[emoji]) {
+  //   const role = reaction.message.guild.roles.cache.find(
+  //     (r) => r.name === rolesEmojis[emoji]
+  //   );
+  //   member.roles.remove(role);
+  // }
+
+  //--- getting the reacted message and reply --
+  const replyMessage = reaction.message;
+  const questionMessage = await replyMessage.channel.messages.fetch(
+    replyMessage.reference.messageId
+  );
+  const question = questionMessage.content;
+  const answer = replyMessage.content;
+
+  // check if the admin removed the checked reaction
+  // Get the user who reacted
+  const guildMember = reaction.message.guild.members.cache.get(user.id);
+
+  // Check if the user who reacted is a member of the guild
+  if (!guildMember) return console.log("User not found");
+
+  if (
+    reaction.emoji.name === "✅" &&
+    guildMember.roles.cache.some((role) => role.name === "Admin")
+  ) {
+    // check if there is a reaction 💾 on the message and remove it
+    if (reaction.message.reactions.cache.get("💾")) {
+      reaction.message.reactions.cache.get("💾").remove();
+    }
+
+    // delete the question and answer from the mongoDB database
+
+    try {
+      faqs.deleteOne(
+        { question: question, answer: answer },
+        function (err, obj) {
+          if (err) throw err;
+          console.log("1 document deleted");
+        }
+      );
+
+      await replyMessage.react("❌");
+    } catch (err) {
+      console.log(err);
+    }
+  }
+});
+
+//-------POSTING AND AI CONVO -------
 client.on("messageCreate", async (msg) => {
   //-- FOR STORING FAQ DATA IN MONGODB VIA ATTACHMENT FILES ----
   if (
@@ -1651,6 +1377,303 @@ client.on("messageCreate", async (msg) => {
     });
   }
 });
+
+//--- FOR TIC TAC TOE GAME ---
+client.on("messageCreate", async (msg) => {
+  // Ignore messages that do not start with the '!ttt' prefix
+  if (!msg.content.startsWith("!mark")) return;
+
+  // Split the message into arguments by spaces
+  const args = msg.content.split(" ");
+
+  // Get the row and column indices from the arguments
+  const row = parseInt(args[1]);
+  const col = parseInt(args[2]);
+
+  // Check if the indices are valid and the cell is empty
+  if (row >= 0 && row < 3 && col >= 0 && col < 3 && board[row][col] === "") {
+    // Place the current player's symbol on the board
+    board[row][col] = currentPlayer;
+
+    // Print the current state of the board
+    msg.channel.send(printBoard());
+
+    // Check if the current player has won
+    if (checkWin(currentPlayer)) {
+      msg.channel.send({
+        embeds: [
+          new EmbedBuilder().setDescription(`Player ${currentPlayer} has won!`),
+        ],
+      });
+      resetGame();
+    } else if (checkDraw()) {
+      msg.channel.send({
+        embeds: [new EmbedBuilder().setDescription(`The game is a draw!`)],
+      });
+      resetGame();
+    } else {
+      lastPlayer = currentPlayer;
+      currentPlayer = currentPlayer === "X" ? botSymbol : "X";
+
+      // If it is the bot's turn, make a move
+      if (currentPlayer === botSymbol) {
+        makeBotMove();
+      } else {
+        msg.channel.send({
+          embeds: [
+            new EmbedBuilder().setDescription(
+              `It is now player ${currentPlayer}'s turn.`
+            ),
+          ],
+        });
+      }
+    }
+  } else {
+    msg.channel.send({
+      embeds: [new EmbedBuilder().setDescription("Invalid move!")],
+    });
+  }
+});
+
+//---- FOR TOSS A COIN GAME -----
+client.on("messageCreate", async (msg) => {
+  //--- FOR TOSS A COIN GAME ----
+  if (
+    msg.content === "!toss" &&
+    msg.author.bot &&
+    msg.channel.id === gameChannel
+  ) {
+    const coin = Math.floor(Math.random() * 2);
+
+    const guessButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("heads")
+        .setLabel("Heads")
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId("tails")
+        .setLabel("Tails")
+        .setStyle(ButtonStyle.Success)
+    );
+
+    if (coin === 0) {
+      coinSide = "heads";
+
+      console.log(coinSide);
+
+      msg
+        .reply({
+          embeds: [
+            new EmbedBuilder()
+              .setTitle(`TOSSING COIN...`)
+              .setImage(
+                "https://media.tenor.com/JlDkKFwn8AoAAAAC/toss-coin-flip.gif"
+              ),
+          ],
+        })
+        .then(async (sentMessage) => {
+          await wait(2500);
+          sentMessage.delete();
+
+          await msg.channel.send({
+            embeds: [
+              new EmbedBuilder()
+                .setTitle(`What's your guess?`)
+                .setThumbnail(
+                  "https://media.tenor.com/Ji8vLfj669IAAAAi/thinking-goma.gif"
+                ),
+            ],
+            components: [guessButton],
+          });
+        });
+
+      return;
+    } else {
+      coinSide = "tails";
+
+      console.log(coinSide);
+
+      msg
+        .reply({
+          embeds: [
+            new EmbedBuilder()
+              .setTitle(`TOSSING COIN...`)
+              .setImage(
+                "https://media.tenor.com/JlDkKFwn8AoAAAAC/toss-coin-flip.gif"
+              ),
+          ],
+        })
+        .then(async (sentMessage) => {
+          await wait(2500);
+          sentMessage.delete();
+
+          await msg.channel.send({
+            embeds: [
+              new EmbedBuilder()
+                .setTitle(`What's your guess?`)
+                .setThumbnail(
+                  "https://media.tenor.com/Ji8vLfj669IAAAAi/thinking-goma.gif"
+                ),
+            ],
+            components: [guessButton],
+          });
+        });
+
+      return;
+    }
+  }
+});
+
+//---- FOR LEVEL AND XP ---
+client.on("messageCreate", async (msg) => {
+  // ignore messages from bots
+  if (msg.author.bot) return;
+
+  //-- FOR LEVELING UP AND EARNING XP POINTS --
+  // Next, we need to find the user's xp and level in the database
+  userLevel.findOne({ userID: msg.author.id }, (err, user) => {
+    if (err) {
+      console.error(err);
+      return;
+    }
+
+    // If the user is not in the database, create a new entry for them
+    if (!user) {
+      const newUser = new userLevel({
+        userID: msg.author.id,
+        xp: 10,
+        level: 0,
+        lastMessage: Date.now(),
+      });
+
+      newUser.save((err, user) => {
+        if (err) {
+          console.error(err);
+          return;
+        }
+        console.log(`Created new user entry for ${msg.author.username}`);
+      });
+    } else {
+      // If the user is in the database, update their xp and level
+      // Check if the user has already earned xp in the past minute
+      if (!user.lastMessage || Date.now() - user.lastMessage > 60000) {
+        user.xp += 10;
+        user.lastMessage = Date.now();
+        const xpNeeded = user.level * 155 + 100; // xp needed to level up
+        if (user.xp >= xpNeeded) {
+          user.level += 1;
+          user.xp = 0;
+        }
+        user.save((err, user) => {
+          if (err) {
+            console.error(err);
+            return;
+          }
+          console.log(`Updated xp and level for ${msg.author.username}`);
+        });
+      }
+    }
+  });
+
+  //-- FOR ADMIN DELETING THE DATA ----
+  if (msg.content === "!deleteData") {
+    if (msg.member.roles.cache.some((role) => role.name === "Admin")) {
+      // Delete all the data in the database
+      userLevel.deleteMany({}, (err) => {
+        if (err) {
+          console.error(err);
+          return;
+        }
+        msg.reply("All data deleted from the database.");
+      });
+      return;
+    } else {
+      msg.reply(`You're not allowed to delete the data`);
+    }
+  }
+
+  //-- FOR SETTING UP THE LEVEL AND XP CHECKING CHANNEL --
+  const channelForCheckingLevel = "1060421595702767616";
+
+  // check if member sent "!level" or "!xp"
+  if (msg.content === "!level" && msg.channel.id === channelForCheckingLevel) {
+    // Find the user's level in the database
+    userLevel.findOne({ userID: msg.author.id }, (err, user) => {
+      if (err) {
+        console.error(err);
+        return;
+      }
+      if (user) {
+        msg.reply({
+          embeds: [
+            new EmbedBuilder().setDescription(
+              `Your level is **${user.level}** 🎉`
+            ),
+          ],
+        });
+      } else {
+        msg.reply({
+          embeds: [
+            new EmbedBuilder().setDescription(
+              `You have not earned any xp yet.`
+            ),
+          ],
+        });
+      }
+    });
+    return;
+  } else if (
+    msg.content === "!xp" &&
+    msg.channel.id === channelForCheckingLevel
+  ) {
+    // Find the user's xp in the database
+    userLevel.findOne({ userID: msg.author.id }, (err, user) => {
+      if (err) {
+        console.error(err);
+        return;
+      }
+      if (user) {
+        msg.reply({
+          embeds: [
+            new EmbedBuilder().setDescription(
+              `Your current XP is **${user.xp}** ⭐️`
+            ),
+          ],
+        });
+      } else {
+        msg.reply({
+          embeds: [
+            new EmbedBuilder().setDescription(
+              `You have not earned any XP yet.`
+            ),
+          ],
+        });
+      }
+    });
+    return;
+  }
+});
+
+//-- FOR REMOVING UNWANTED EMOJIS FOR COMMUNITY ROLES --
+// client.on("ready", async () => {
+//   try {
+//     let message = await client.channels.cache
+//       .get(channelId)
+//       .messages.fetch("1068119516409761853");
+//     // await message.react("🇵🇭");
+//     // await message.react("🇨🇳");
+//     await message.reactions.cache.get("🇵🇭").remove();
+//     await message.reactions.cache.get("🇨🇳").remove();
+//     console.log("Reaction updated");
+//   } catch (error) {
+//     console.error(`Error adding reaction to message: ${error}`);
+//   }
+// });
+
+// Pre-process the pre-defined FAQ data into numerical representations
+// let data = fs.readFileSync("./faqs.txt", "utf8");
+// let faqData = JSON.parse(data); //---- INITIALLY IMPORTING THE PROJECTLIST JS FILE -----
+// let faq = faqData.slice();
 
 //------------ HANDLING MSG EVENTS ----------------
 client.on(Events.MessageCreate, async (message) => {
