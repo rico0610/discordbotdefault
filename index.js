@@ -1228,7 +1228,7 @@ client.on("messageCreate", async (msg) => {
   }
 
   //--- FOR AI CONVERSATION ---
-  const AIChannel = "1069876640877920327";
+  const AIChannel = "1057559988840701952";
 
   const resetButton = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
