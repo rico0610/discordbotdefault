@@ -578,8 +578,6 @@ const rolesEmojis = {
 };
 
 client.on("messageReactionAdd", async (reaction, user) => {
-  const member = await reaction.message.guild.members.fetch(user.id);
-
   if (user.bot) return;
 
   if (reaction.message.partial) {
@@ -591,32 +589,33 @@ client.on("messageReactionAdd", async (reaction, user) => {
     }
   }
 
-  // Check if the user already has another role based on the given object
-  const userRoles = member.roles.cache.filter((role) => {
-    return Object.values(rolesEmojis).includes(role.name);
-  });
+  // // Check if the user already has another role based on the given object
+  // const member = await reaction.message.guild.members.fetch(user.id);
+  // const userRoles = member.roles.cache.filter((role) => {
+  //   return Object.values(rolesEmojis).includes(role.name);
+  // });
 
-  const currentRole = member.roles.cache.find((r) =>
-    Object.values(rolesEmojis).includes(r.name)
-  );
+  // const currentRole = member.roles.cache.find((r) =>
+  //   Object.values(rolesEmojis).includes(r.name)
+  // );
 
-  // If the user already has another role based on the given object, ask them to remove it
-  if (userRoles.size > 0 && currentRole) {
-    try {
-      await reaction.users.remove(user.id);
-    } catch (error) {
-      console.error(`Could not send message to ${member.user.username}`);
-    }
-    return;
-  }
+  // // If the user already has another role based on the given object, ask them to remove it
+  // if (userRoles.size > 0 && currentRole) {
+  //   try {
+  //     await reaction.users.remove(user.id);
+  //   } catch (error) {
+  //     console.error(`Could not send message to ${member.user.username}`);
+  //   }
+  //   return;
+  // }
 
-  const emoji = reaction.emoji.name;
-  if (rolesEmojis[emoji]) {
-    const role = reaction.message.guild.roles.cache.find(
-      (r) => r.name === rolesEmojis[emoji]
-    );
-    reaction.message.guild.members.cache.get(user.id).roles.add(role);
-  }
+  // const emoji = reaction.emoji.name;
+  // if (rolesEmojis[emoji]) {
+  //   const role = reaction.message.guild.roles.cache.find(
+  //     (r) => r.name === rolesEmojis[emoji]
+  //   );
+  //   reaction.message.guild.members.cache.get(user.id).roles.add(role);
+  // }
 
   // add a check for reaction and reaction should be given by the Admin.
   // Get the user who reacted
@@ -667,17 +666,17 @@ client.on("messageReactionAdd", async (reaction, user) => {
 });
 
 client.on("messageReactionRemove", async (reaction, user) => {
-  const emoji = reaction.emoji.name;
-  const member = reaction.message.guild.members.cache.get(user.id);
+  // const emoji = reaction.emoji.name;
+  // const member = reaction.message.guild.members.cache.get(user.id);
 
-  if (user.bot) return;
+  // if (user.bot) return;
 
-  if (rolesEmojis[emoji]) {
-    const role = reaction.message.guild.roles.cache.find(
-      (r) => r.name === rolesEmojis[emoji]
-    );
-    member.roles.remove(role);
-  }
+  // if (rolesEmojis[emoji]) {
+  //   const role = reaction.message.guild.roles.cache.find(
+  //     (r) => r.name === rolesEmojis[emoji]
+  //   );
+  //   member.roles.remove(role);
+  // }
 
   //--- getting the reacted message and reply --
   const replyMessage = reaction.message;
