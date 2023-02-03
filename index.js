@@ -929,7 +929,7 @@ client.on("messageCreate", async (msg) => {
       try {
         // Select the FAQ with the highest cosine similarity score as the most relevant answer
 
-        const prompt = `You are talking to a person who is asking you questions about your product and you are answering them with the most relevant answer from the FAQ which is ${information}
+        const prompt = `You are talking to a person who is asking you questions about your product and you are continuing the discussing from the previous conversation.
 
         ${conversationHistory}
 
