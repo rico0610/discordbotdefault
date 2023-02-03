@@ -917,15 +917,14 @@ client.on("messageCreate", async (msg) => {
 
     const information = faq[index];
 
-    console.log(information);
-
     // Make sure that there's at least one FAQ with a non-zero cosine similarity score
     const maxSimilarity = Math.max(...similarities);
 
     const questionWords =
       /\b(how|what|why|when|where|which|whom|whose|is|are|do|did|does|can|could|should|would|have|has|had|was|were|am|if|whether|will|shall)\b/i;
 
-    if (!questionWords.test(msg.content) || index === -1) {
+    if (!questionWords.test(msg.content)) {
+      console.log("Not a question");
       try {
         // Select the FAQ with the highest cosine similarity score as the most relevant answer
 
@@ -985,6 +984,8 @@ client.on("messageCreate", async (msg) => {
       }
     } else {
       if (maxSimilarity === 0 || index === -1) {
+        console.log("No FAQ found");
+
         try {
           //add the new conversation to the db
           if (!conversationData) {
@@ -1024,6 +1025,8 @@ client.on("messageCreate", async (msg) => {
           console.error(err);
         }
       } else {
+        console.log(information);
+
         try {
           // Select the FAQ with the highest cosine similarity score as the most relevant answer
 
