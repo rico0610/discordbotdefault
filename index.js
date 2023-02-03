@@ -839,8 +839,6 @@ client.on("messageCreate", async (msg) => {
               ],
             });
           } else {
-            await fetch();
-
             await msg
               .reply({
                 embeds: [
@@ -850,7 +848,8 @@ client.on("messageCreate", async (msg) => {
                 ],
               })
               .then(async () => {
-                await wait(2000);
+                await fetch();
+                await wait(4000);
                 console.log(faq);
               });
           }
@@ -990,7 +989,7 @@ client.on("messageCreate", async (msg) => {
         return;
       }
     } else {
-      if (maxSimilarity <= 0.5 || index === -1) {
+      if (maxSimilarity < 0.5 || index === -1) {
         console.log("No FAQ found");
 
         try {
