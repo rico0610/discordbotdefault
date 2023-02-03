@@ -839,9 +839,9 @@ client.on("messageCreate", async (msg) => {
               ],
             });
           } else {
-            await fetch();
-
-            console.log(faq);
+            await fetch().then((faq) => {
+              console.log(faq);
+            });
 
             msg.reply({
               embeds: [
