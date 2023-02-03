@@ -1037,7 +1037,7 @@ client.on("messageCreate", async (msg) => {
         try {
           // Select the FAQ with the highest cosine similarity score as the most relevant answer
 
-          const prompt = `Act as an AI chatbot named Steve that is positive, friendly and helpful. You are talking to a person who is asking you questions about your product and you are answering them with the most relevant answer from the FAQ which is ${information}
+          const prompt = `Act as an AI chatbot named Steve that is positive, friendly and helpful. You are talking to a person who is asking you questions about your product and you are answering them with the most relevant answer from the FAQ which is only limited to ${information}. Do not share other information aside from this.
 
           ${conversationHistory}
 
