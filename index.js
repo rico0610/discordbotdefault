@@ -829,6 +829,8 @@ client.on("messageCreate", async (msg) => {
         // Parse the data as JSON
         const faqData = data.split("\n").map((answer) => ({ answer }));
 
+        faq = faqData;
+
         faqs.insertMany(faqData, (error) => {
           if (error) {
             msg.reply({
@@ -839,6 +841,8 @@ client.on("messageCreate", async (msg) => {
               ],
             });
           } else {
+            console.log(faq);
+
             msg.reply({
               embeds: [
                 new EmbedBuilder()
@@ -1638,6 +1642,8 @@ client.on(Events.MessageCreate, async (message) => {
 client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isButton()) {
     if (interaction.customId === "deleteFaq") {
+      faq = [];
+
       faqs.deleteMany({}, (error) => {
         if (error) {
           interaction.update({
