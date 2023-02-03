@@ -814,7 +814,7 @@ client.on("messageCreate", async (msg) => {
   //-- FOR STORING FAQ DATA IN MONGODB VIA ATTACHMENT FILES ----
   if (
     msg.attachments.size > 0 &&
-    msg.attachments.first().name === "luffy.txt" &&
+    msg.attachments.first().name === "faqs.txt" &&
     msg.member.roles.cache.some((role) => role.name === "Admin")
   ) {
     const attachment = msg.attachments.first();
