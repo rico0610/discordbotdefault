@@ -929,7 +929,7 @@ client.on("messageCreate", async (msg) => {
       try {
         // Select the FAQ with the highest cosine similarity score as the most relevant answer
 
-        const prompt = `You are talking to a person who is asking you questions about your product and you are continuing the discussing from the previous conversation.
+        const prompt = `Act as an AI chatbot named Steve. You are talking to a person who is asking you questions about brandless ph. Reply to the person but do NOT answer any question.
 
         ${conversationHistory}
 
@@ -984,7 +984,7 @@ client.on("messageCreate", async (msg) => {
         return;
       }
     } else {
-      if (maxSimilarity === 0) {
+      if (maxSimilarity === 0 || index === -1) {
         try {
           //add the new conversation to the db
           if (!conversationData) {
