@@ -925,7 +925,7 @@ client.on("messageCreate", async (msg) => {
     const questionWords =
       /\b(how|what|why|when|where|which|whom|whose|is|are|do|did|does|can|could|should|would|have|has|had|was|were|am|if|whether|will|shall)\b/i;
 
-    if (!questionWords.test(msg.content)) {
+    if (!questionWords.test(msg.content) || index === -1) {
       try {
         // Select the FAQ with the highest cosine similarity score as the most relevant answer
 
