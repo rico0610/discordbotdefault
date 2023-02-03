@@ -1634,25 +1634,27 @@ client.on(Events.MessageCreate, async (message) => {
 //------------ HANDLING EVENTS ----------------
 client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isButton()) {
-    if (interaction.customId === "!deleteFaq") {
+    if (interaction.customId === "deleteFaq") {
       faqs.deleteMany({}, (error) => {
         if (error) {
-          interaction.reply({
+          interaction.update({
             embeds: [
               new EmbedBuilder()
                 .setDescription(`**Error deleting FAQ: ${error}.**`)
                 .setColor("#303434"),
             ],
+            components: [],
           });
 
           return;
         } else {
-          interaction.reply({
+          interaction.update({
             embeds: [
               new EmbedBuilder()
                 .setDescription(`**FAQs were deleted successfully from DB!**`)
                 .setColor("#303434"),
             ],
+            components: [],
           });
           return;
         }
@@ -1661,6 +1663,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     if (interaction.customId === "createFile") {
       main();
+
+      interaction.update({
+        embeds: [
+          new EmbedBuilder()
+            .setDescription(`**FAQs were created successfully!**`)
+            .setColor("#303434"),
+        ],
+        components: [],
+      });
 
       return;
     }
