@@ -831,7 +831,7 @@ client.on("messageCreate", async (msg) => {
 
         faqs.insertMany(faqData, async (error) => {
           if (error) {
-            msg.reply({
+            await msg.reply({
               embeds: [
                 new EmbedBuilder()
                   .setDescription(`**Error creating FAQ data: ${error}.**`)
@@ -839,17 +839,20 @@ client.on("messageCreate", async (msg) => {
               ],
             });
           } else {
-            await fetch().then((faq) => {
-              console.log(faq);
-            });
+            await fetch();
 
-            msg.reply({
-              embeds: [
-                new EmbedBuilder()
-                  .setDescription(`**FAQ data created in DB successfully!**`)
-                  .setColor("#303434"),
-              ],
-            });
+            await msg
+              .reply({
+                embeds: [
+                  new EmbedBuilder()
+                    .setDescription(`**FAQ data created in DB successfully!**`)
+                    .setColor("#303434"),
+                ],
+              })
+              .then(async () => {
+                await wait(2000);
+                console.log(faq);
+              });
           }
         });
       });
