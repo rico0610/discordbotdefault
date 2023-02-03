@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const faqSchema = new mongoose.Schema({
   answer: {
     type: String,
-    required: true,
+    required: false,
   },
 });
 

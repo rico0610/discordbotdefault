@@ -65,7 +65,10 @@ const guildId = "1056069438564220999";
 const channelId = "1059713593534324746";
 const gameChannel = "1057293089183629342";
 const AIChannelId = "1057559988840701952";
+//const AIChannelId = "1070911198440198144"; //-for testing
 const botControlChannelId = "1070614249392578570";
+//const botControlChannelId = "1070614249392578570"; //-for testing
+const channelForCheckingLevel = "1060421595702767616";
 
 //---- for dynamically retrieving command files ----
 client.commands = new Collection();
@@ -664,6 +667,9 @@ function someConversionFunction(tokens) {
 client.on("messageReactionAdd", async (reaction, user) => {
   if (user.bot) return;
 
+  //get the reaction channel
+  if (reaction.message.channelId !== AIChannelId) return;
+
   if (reaction.message.partial) {
     try {
       await reaction.message.fetch();
@@ -762,6 +768,8 @@ client.on("messageReactionRemove", async (reaction, user) => {
   //   member.roles.remove(role);
   // }
 
+  if (reaction.message.channelId !== AIChannelId) return;
+
   //--- getting the reacted message and reply --
   const replyMessage = reaction.message;
   const answer = replyMessage.content;
@@ -806,7 +814,7 @@ client.on("messageCreate", async (msg) => {
   //-- FOR STORING FAQ DATA IN MONGODB VIA ATTACHMENT FILES ----
   if (
     msg.attachments.size > 0 &&
-    msg.attachments.first().name === "faqs.txt" &&
+    msg.attachments.first().name === "luffy.txt" &&
     msg.member.roles.cache.some((role) => role.name === "Admin")
   ) {
     const attachment = msg.attachments.first();
@@ -842,40 +850,6 @@ client.on("messageCreate", async (msg) => {
         });
       });
     });
-  }
-
-  if (
-    msg.content === "!deletefaq" &&
-    msg.member.roles.cache.some((role) => role.name === "Admin")
-  ) {
-    faqs.deleteMany({}, (error) => {
-      if (error) {
-        msg.reply({
-          embeds: [
-            new EmbedBuilder()
-              .setDescription(`**Error deleting FAQ: ${error}.**`)
-              .setColor("#303434"),
-          ],
-        });
-      } else {
-        msg.reply({
-          embeds: [
-            new EmbedBuilder()
-              .setDescription(`**FAQs were deleted successfully from DB!**`)
-              .setColor("#303434"),
-          ],
-        });
-      }
-    });
-  }
-
-  if (
-    msg.content === "!createfile" &&
-    msg.member.roles.cache.some((role) => role.name === "Admin")
-  ) {
-    main();
-
-    return;
   }
 
   //--- FOR AI CONVERSATION ---
@@ -943,6 +917,8 @@ client.on("messageCreate", async (msg) => {
 
     const information = faq[index];
 
+    console.log(information);
+
     // Make sure that there's at least one FAQ with a non-zero cosine similarity score
     const maxSimilarity = Math.max(...similarities);
 
@@ -952,20 +928,19 @@ client.on("messageCreate", async (msg) => {
     if (!questionWords.test(msg.content)) {
       try {
         // Select the FAQ with the highest cosine similarity score as the most relevant answer
-        //const index = similarities.indexOf(Math.max(...similarities));
 
         const prompt = `You are talking to a person who is asking you questions about your product and you are answering them with the most relevant answer from the FAQ which is ${information}
-      
-      ${conversationHistory}
 
-      customer: Thank you for your help!
-      steve: Is there anything else I can help you with?
+        ${conversationHistory}
 
-      customer: No not for now.
-      steve: Thank you for your time! Have a nice day!
-  
-      customer: ${msg.content}
-      steve: `;
+        customer: Thank you for your help!
+        steve: Is there anything else I can help you with?
+
+        customer: No not for now.
+        steve: Thank you for your time! Have a nice day!
+
+        customer: ${msg.content}
+        steve: `;
 
         const answer = await ask(prompt); //prompt GPT-3
 
@@ -1011,9 +986,6 @@ client.on("messageCreate", async (msg) => {
     } else {
       if (maxSimilarity === 0) {
         try {
-          // await msg.reply({
-          //   content: `Sorry, It seems I don't have the answer for that. Please try to rephrase your question to be more specific or your can ask ${modRole} instead if your concern requires an immediate attention of our team.`,
-          // });
           //add the new conversation to the db
           if (!conversationData) {
             const newConversation = new conversation({
@@ -1054,17 +1026,15 @@ client.on("messageCreate", async (msg) => {
       } else {
         try {
           // Select the FAQ with the highest cosine similarity score as the most relevant answer
-          //const index = similarities.indexOf(Math.max(...similarities));
 
           const prompt = `Act as an AI chatbot named Steve that is positive, friendly and helpful. You are talking to a person who is asking you questions about your product and you are answering them with the most relevant answer from the FAQ which is ${information}
-      
-      ${conversationHistory}
-  
-      customer: ${msg.content}
-      steve: `;
+
+          ${conversationHistory}
+
+          customer: ${msg.content}
+          steve: `;
 
           const answer = await ask(prompt); //prompt GPT-3
-          //await msg.reply({ content: answer });
 
           if (!conversationData) {
             const newConversation = new conversation({
@@ -1540,8 +1510,6 @@ client.on("messageCreate", async (msg) => {
   }
 
   //-- FOR SETTING UP THE LEVEL AND XP CHECKING CHANNEL --
-  const channelForCheckingLevel = "1060421595702767616";
-
   // check if member sent "!level" or "!xp"
   if (msg.content === "!level" && msg.channel.id === channelForCheckingLevel) {
     // Find the user's level in the database
@@ -1666,6 +1634,37 @@ client.on(Events.MessageCreate, async (message) => {
 //------------ HANDLING EVENTS ----------------
 client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isButton()) {
+    if (interaction.customId === "!deleteFaq") {
+      faqs.deleteMany({}, (error) => {
+        if (error) {
+          interaction.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setDescription(`**Error deleting FAQ: ${error}.**`)
+                .setColor("#303434"),
+            ],
+          });
+
+          return;
+        } else {
+          interaction.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setDescription(`**FAQs were deleted successfully from DB!**`)
+                .setColor("#303434"),
+            ],
+          });
+          return;
+        }
+      });
+    }
+
+    if (interaction.customId === "createFile") {
+      main();
+
+      return;
+    }
+
     //--FOR RESETTING AI CONVERSATION ---
     if (interaction.customId === "reset") {
       try {
