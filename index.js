@@ -928,7 +928,7 @@ client.on("messageCreate", async (msg) => {
       try {
         // Select the FAQ with the highest cosine similarity score as the most relevant answer
 
-        const prompt = `Act as an AI chatbot named Steve. You are talking to a person who is asking you questions about brandless ph. Reply to the person but do NOT answer any question.
+        const prompt = `Act as an AI chatbot named Steve. You are talking to a person who is asking you questions about brandless ph. Reply to the person but do NOT answer any question at all.
 
         ${conversationHistory}
 
@@ -983,7 +983,7 @@ client.on("messageCreate", async (msg) => {
         return;
       }
     } else {
-      if (maxSimilarity === 0 || index === -1) {
+      if (maxSimilarity <= 0.5 || index === -1) {
         console.log("No FAQ found");
 
         try {
