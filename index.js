@@ -829,9 +829,7 @@ client.on("messageCreate", async (msg) => {
         // Parse the data as JSON
         const faqData = data.split("\n").map((answer) => ({ answer }));
 
-        faq = faqData;
-
-        faqs.insertMany(faqData, (error) => {
+        faqs.insertMany(faqData, async (error) => {
           if (error) {
             msg.reply({
               embeds: [
@@ -841,7 +839,7 @@ client.on("messageCreate", async (msg) => {
               ],
             });
           } else {
-            console.log(faq);
+            await fetch();
 
             msg.reply({
               embeds: [
