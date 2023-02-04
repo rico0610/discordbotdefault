@@ -1923,12 +1923,12 @@ client.on("guildMemberAdd", async (member) => {
   }, 300000);
 });
 
-client.login(token);
-(async () => {
-  await connect(uri).catch(console.error);
-})();
-
-// client.login(process.env.token);
+// client.login(token);
 // (async () => {
-//   await connect(process.env.uri).catch(console.error);
+//   await connect(uri).catch(console.error);
 // })();
+
+client.login(process.env.token);
+(async () => {
+  await connect(process.env.uri).catch(console.error);
+})();
