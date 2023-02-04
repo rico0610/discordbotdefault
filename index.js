@@ -1816,10 +1816,10 @@ client.on("guildMemberAdd", async (member) => {
   }, 300000);
 });
 
-client.login(token);
-(async () => {
-  await connect(uri).catch(console.error);
-})();
+// client.login(token);
+// (async () => {
+//   await connect(uri).catch(console.error);
+// })();
 
 client.login(process.env.token);
 (async () => {
