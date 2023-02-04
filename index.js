@@ -64,11 +64,11 @@ const client = new Client({
 const guildId = "1056069438564220999";
 const channelId = "1059713593534324746";
 const gameChannel = "1057293089183629342";
-const AIChannelId = "1057559988840701952";
-//const AIChannelId = "1070911198440198144"; //-for testing
-const botControlChannelId = "1070614249392578570";
-//const botControlChannelId = "1070614249392578570"; //-for testing
 const channelForCheckingLevel = "1060421595702767616";
+const AIChannelId = "1057559988840701952";
+const botControlChannelId = "1070614249392578570";
+//const AIChannelId = "1069876640877920327"; //-for testing
+//const botControlChannelId = "1054312191689510983"; //-for testing
 
 //---- for dynamically retrieving command files ----
 client.commands = new Collection();
@@ -1042,7 +1042,7 @@ client.on("messageCreate", async (msg) => {
 
           information: ${information}
 
-          if the information not relevant to the question, reply with "Sorry, It seems I don't have the answer for that. Please try to rephrase your question to be more specific or your can ask ${modRole} instead if your concern requires an immediate attention of our team."
+          if the information does not exactly answers that the question, reply with "Sorry, It seems I don't have the answer for that. Please try to rephrase your question to be more specific or your can ask ${modRole} instead if your concern requires an immediate attention of our team." and stop the conversation.
 
           ${conversationHistory}
 
@@ -1710,7 +1710,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // --- FOR GAMES INFO ---
 
     if (interaction.customId === "tossCoin") {
-      interaction.reply({
+      await interaction.reply({
         embeds: [
           new EmbedBuilder()
             .setTitle(`Please watch the sample gameplay:`)
@@ -1721,7 +1721,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         ephemeral: true,
       });
     } else if (interaction.customId === "ttt") {
-      interaction.reply({
+      await interaction.reply({
         embeds: [
           new EmbedBuilder()
             .setTitle(`Please watch the sample gameplay:`)
@@ -1751,12 +1751,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     if (interaction.customId === "heads") {
       if (!coinSide) {
-        interaction.reply({
+        await interaction.reply({
           embeds: [new EmbedBuilder().setDescription("Please use `/toss`")],
         });
       } else {
         if (coinSide === "heads") {
-          interaction.reply({
+          await interaction.reply({
             embeds: [
               new EmbedBuilder()
                 .setTitle(`You've guessed it right!`)
@@ -1769,7 +1769,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
           coinSide = "";
         } else {
-          interaction.reply({
+          await interaction.reply({
             embeds: [
               new EmbedBuilder()
                 .setTitle(`Nope! Better luck next time.`)
@@ -1785,12 +1785,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
     } else if (interaction.customId === "tails") {
       if (!coinSide) {
-        interaction.reply({
+        await interaction.reply({
           embeds: [new EmbedBuilder().setDescription("Please use `/toss`")],
         });
       } else {
         if (coinSide === "tails") {
-          interaction.reply({
+          await interaction.reply({
             embeds: [
               new EmbedBuilder()
                 .setTitle(`You've guessed it right!`)
@@ -1803,7 +1803,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
           coinSide = "";
         } else {
-          interaction.reply({
+          await interaction.reply({
             embeds: [
               new EmbedBuilder()
                 .setTitle(`Nope! Better luck next time.`)
@@ -1923,12 +1923,12 @@ client.on("guildMemberAdd", async (member) => {
   }, 300000);
 });
 
-// client.login(token);
-// (async () => {
-//   await connect(uri).catch(console.error);
-// })();
-
-client.login(process.env.token);
+client.login(token);
 (async () => {
-  await connect(process.env.uri).catch(console.error);
+  await connect(uri).catch(console.error);
 })();
+
+// client.login(process.env.token);
+// (async () => {
+//   await connect(process.env.uri).catch(console.error);
+// })();
