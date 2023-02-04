@@ -10,8 +10,6 @@ const faqs = require("./faqSchema/faqs");
 const https = require("https");
 //const InviteData = require("./inviteSchema/invite");
 const { ask } = require("./openAI.js");
-const cosineSimilarity = require("cosine-similarity");
-const natural = require("natural");
 const wait = require("node:timers/promises").setTimeout;
 // const {
 //   token,
@@ -605,6 +603,7 @@ function fetch() {
     } else {
       // Create an array of the answers
       faq = faqs.map((faq) => faq.answer);
+      console.log(faq);
       console.log("FAQ data loaded");
     }
   });
@@ -641,27 +640,6 @@ async function main() {
       });
     }
   });
-}
-
-function somePreprocessingFunction(text) {
-  // Tokenize the text into an array of words
-  const tokens = natural.PorterStemmer.tokenizeAndStem(text);
-
-  // Convert the array of tokens into a numerical representation, such as a bag-of-words vector
-  // This step may also involve removing stop words, stemming, or vector normalization
-  const vector = someConversionFunction(tokens);
-
-  return vector;
-}
-
-function someConversionFunction(tokens) {
-  // Your implementation here, for example:
-  // Convert the array of tokens into a bag-of-words vector using a library such as natural
-  const vector = {};
-  for (const token of tokens) {
-    vector[token] = (vector[token] || 0) + 1;
-  }
-  return vector;
 }
 
 client.on("messageReactionAdd", async (reaction, user) => {
@@ -902,51 +880,21 @@ client.on("messageCreate", async (msg) => {
       userId: msg.author.id,
     });
 
-    // Preprocess the user's message
-    const userMessage = somePreprocessingFunction(msg.content);
-
-    // Compare the user's message to each piece of information in your database
-    const similarities = faq.map((info) =>
-      cosineSimilarity(userMessage, somePreprocessingFunction(info))
-    );
-
-    // Select the information with the highest cosine similarity score as the most relevant answer
-    const index = similarities.indexOf(Math.max(...similarities));
-
-    const information = faq[index];
-
-    // Make sure that there's at least one FAQ with a non-zero cosine similarity score
-    //const maxSimilarity = Math.max(...similarities);
-
-    console.log(information);
-
     try {
       // Select the FAQ with the highest cosine similarity score as the most relevant answer
 
-      const prompt = `Given the following information: ${information}, respond as a chatbot to the question ${msg.content} continuing the following conversation: ${conversationHistory}. 
-      
-      Your response should be a concise, clear, and accurate answer to the question, utilizing the information provided. The response should be no longer than 30 words.
+      const prompt = `Act as a chat support named Steve for brandless ph. Use the following information to answer a question. Your answer should only be limted to the information given and should not deviate from it. If the information to answer the question is not available to the given information, answer with "Sorry, it seems I don't have the answer to that. Please try to rephrase your question to be more specific, or you can ask the ${modRole} instead if your concern requires the immediate attention of our team." Then stop the conversation."
 
-      If the message is not a question, please respond with a casual, appropriate reply and do not ask if there is anything else you can help with.
+      Given information: ${faq}. 
       
-      If the information provided does not specifically and directly answer the question, please respond with "Sorry, It seems I don't have the answer for that. Please try to rephrase your question to be more specific or your can ask ${modRole} instead if your concern requires an immediate attention of our team."
+      Question: ${msg.content} 
       
-      Your response should not contain any offensive or insensitive language and should not include any information that is not explicitly stated in the provided information. The response should not present any unverified or incorrect information as fact.
-      
-      Please use proper grammar and spelling in your response, and avoid using excessive colloquialisms or informal language. Your response should be professional and appropriate for a conversational AI chatbot named Steve.
-      
-      customer: Ok. Alright then. Thanks.
-      steve: Is there anything else I can help you with?
-
-      customer: That's all for now. I'm good.
-      steve: Alright. Have a nice day!
-
-      customer: ${msg.content}
-      steve: `;
+      Steve: `;
 
       const answer = await ask(prompt); //prompt GPT-3
 
       if (!conversationData) {
+        console.log(answer);
         const newConversation = new conversation({
           userId: msg.author.id,
           conversation: {
@@ -965,6 +913,7 @@ client.on("messageCreate", async (msg) => {
         });
       } else {
         //add the new conversation to the db
+        console.log(answer);
         conversationData.conversation.push({
           customer: msg.content,
           ai: answer,
