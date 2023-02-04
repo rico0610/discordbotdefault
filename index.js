@@ -67,8 +67,8 @@ const gameChannel = "1057293089183629342";
 const channelForCheckingLevel = "1060421595702767616";
 const AIChannelId = "1057559988840701952";
 const botControlChannelId = "1070614249392578570";
-//const AIChannelId = "1069876640877920327"; //-for testing
-//const botControlChannelId = "1054312191689510983"; //-for testing
+// const AIChannelId = "1069876640877920327"; //-for testing
+// const botControlChannelId = "1054312191689510983"; //-for testing
 
 //---- for dynamically retrieving command files ----
 client.commands = new Collection();
@@ -902,16 +902,6 @@ client.on("messageCreate", async (msg) => {
       userId: msg.author.id,
     });
 
-    // // Pre-process the input question
-    // const question = msg.content;
-    // const questionVector = somePreprocessingFunction(question);
-
-    // // Calculate cosine similarity between the input question and the pre-defined FAQ
-    // const similarities = [];
-    // for (let i = 0; i < faqVectors.length; i++) {
-    //   similarities.push(cosineSimilarity(questionVector, faqVectors[i]));
-    // }
-
     // Preprocess the user's message
     const userMessage = somePreprocessingFunction(msg.content);
 
@@ -926,169 +916,72 @@ client.on("messageCreate", async (msg) => {
     const information = faq[index];
 
     // Make sure that there's at least one FAQ with a non-zero cosine similarity score
-    const maxSimilarity = Math.max(...similarities);
+    //const maxSimilarity = Math.max(...similarities);
 
-    const questionWords =
-      /\b(how|what|why|when|where|which|whom|whose|is|are|do|did|does|can|could|should|would|have|has|had|was|were|am|if|whether|will|shall)\b/i;
+    console.log(information);
 
-    if (!questionWords.test(msg.content)) {
-      console.log("Not a question");
-      try {
-        // Select the FAQ with the highest cosine similarity score as the most relevant answer
+    try {
+      // Select the FAQ with the highest cosine similarity score as the most relevant answer
 
-        const prompt = `Act as an AI chatbot named Steve. You are talking to a person who is asking you questions about brandless ph. Reply to the person but do NOT answer any question at all.
+      const prompt = `Given the following information: ${information}, respond as a chatbot to the question ${msg.content} continuing the following conversation: ${conversationHistory}. 
+      
+      Your response should be a concise, clear, and accurate answer to the question, utilizing the information provided. The response should be no longer than 30 words.
 
-        ${conversationHistory}
+      If the message is not a question, please respond with a casual, appropriate reply and do not ask if there is anything else you can help with.
+      
+      If the information provided does not specifically and directly answer the question, please respond with "Sorry, It seems I don't have the answer for that. Please try to rephrase your question to be more specific or your can ask ${modRole} instead if your concern requires an immediate attention of our team."
+      
+      Your response should not contain any offensive or insensitive language and should not include any information that is not explicitly stated in the provided information. The response should not present any unverified or incorrect information as fact.
+      
+      Please use proper grammar and spelling in your response, and avoid using excessive colloquialisms or informal language. Your response should be professional and appropriate for a conversational AI chatbot named Steve.
+      
+      customer: Ok. Alright then. Thanks.
+      steve: Is there anything else I can help you with?
 
-        customer: Thank you for your help!
-        steve: Is there anything else I can help you with?
+      customer: That's all for now. I'm good.
+      steve: Alright. Have a nice day!
 
-        customer: No not for now.
-        steve: Thank you for your time! Have a nice day!
+      customer: ${msg.content}
+      steve: `;
 
-        customer: ${msg.content}
-        steve: `;
+      const answer = await ask(prompt); //prompt GPT-3
 
-        const answer = await ask(prompt); //prompt GPT-3
-
-        // await msg.reply({ content: answer });
-
-        if (!conversationData) {
-          const newConversation = new conversation({
-            userId: msg.author.id,
-            conversation: {
-              customer: msg.content,
-              ai: answer,
-            },
-          });
-
-          await newConversation.save().then(async () => {
-            await msg.channel.sendTyping();
-            await wait(2000);
-            await msg.reply({
-              content: answer,
-              components: [resetButton],
-            });
-          });
-        } else {
-          //add the new conversation to the db
-          conversationData.conversation.push({
+      if (!conversationData) {
+        const newConversation = new conversation({
+          userId: msg.author.id,
+          conversation: {
             customer: msg.content,
             ai: answer,
+          },
+        });
+
+        await newConversation.save().then(async () => {
+          await msg.channel.sendTyping();
+          await wait(2000);
+          await msg.reply({
+            content: answer,
+            components: [resetButton],
           });
-
-          await conversationData.save().then(async () => {
-            await msg.channel.sendTyping();
-            await wait(2000);
-            await msg.reply({
-              content: answer,
-              components: [resetButton],
-            });
-          });
-        }
-      } catch (error) {
-        console.error(error);
-        return;
-      }
-    } else {
-      if (maxSimilarity === 0) {
-        console.log("No FAQ found");
-
-        try {
-          //add the new conversation to the db
-          if (!conversationData) {
-            const newConversation = new conversation({
-              userId: msg.author.id,
-              conversation: {
-                customer: msg.content,
-                ai: `Sorry, It seems I don't have the answer for that. Please try to rephrase your question to be more specific or your can ask ${modRole} instead if your concern requires an immediate attention of our team.`,
-              },
-            });
-
-            await newConversation.save().then(async () => {
-              await msg.channel.sendTyping();
-              await wait(2000);
-              await msg.reply({
-                content: `Sorry, It seems I don't have the answer for that. Please try to rephrase your question to be more specific or your can ask ${modRole} instead if your concern requires an immediate attention of our team.`,
-                components: [resetButton],
-              });
-            });
-          } else {
-            conversationData.conversation.push({
-              customer: msg.content,
-              ai: `Sorry, It seems I don't have the answer for that. Please try to rephrase your question to be more specific or your can ask ${modRole} instead if your concern requires an immediate attention of our team.`,
-            });
-
-            await conversationData.save().then(async () => {
-              await msg.channel.sendTyping();
-              await wait(2000);
-              await msg.reply({
-                content: `Sorry, It seems I don't have the answer for that. Please try to rephrase your question to be more specific or your can ask ${modRole} instead if your concern requires an immediate attention of our team.`,
-                components: [resetButton],
-              });
-            });
-          }
-          return;
-        } catch (err) {
-          console.error(err);
-        }
+        });
       } else {
-        console.log(information);
+        //add the new conversation to the db
+        conversationData.conversation.push({
+          customer: msg.content,
+          ai: answer,
+        });
 
-        try {
-          // Select the FAQ with the highest cosine similarity score as the most relevant answer
-
-          const prompt = `Act as an AI chatbot named Steve that is positive, friendly and helpful. You are talking to a person who is asking you questions about your product and you are answering them with the most relevant answer from the FAQ which is only limited to the information below.
-
-          information: ${information}
-
-          if the information does not exactly answers that the question, reply with "Sorry, It seems I don't have the answer for that. Please try to rephrase your question to be more specific or your can ask ${modRole} instead if your concern requires an immediate attention of our team." and stop the conversation.
-
-          ${conversationHistory}
-
-          customer: ${msg.content}
-          steve: `;
-
-          const answer = await ask(prompt); //prompt GPT-3
-
-          if (!conversationData) {
-            const newConversation = new conversation({
-              userId: msg.author.id,
-              conversation: {
-                customer: msg.content,
-                ai: answer,
-              },
-            });
-
-            await newConversation.save().then(async () => {
-              await msg.channel.sendTyping();
-              await wait(2000);
-              await msg.reply({
-                content: answer,
-                components: [resetButton],
-              });
-            });
-          } else {
-            //add the new conversation to the db
-            conversationData.conversation.push({
-              customer: msg.content,
-              ai: answer,
-            });
-
-            await conversationData.save().then(async () => {
-              await msg.channel.sendTyping();
-              await wait(2000);
-              await msg.reply({
-                content: answer,
-                components: [resetButton],
-              });
-            });
-          }
-        } catch (error) {
-          console.error(error);
-          return;
-        }
+        await conversationData.save().then(async () => {
+          await msg.channel.sendTyping();
+          await wait(2000);
+          await msg.reply({
+            content: answer,
+            components: [resetButton],
+          });
+        });
       }
+    } catch (error) {
+      console.error(error);
+      return;
     }
   }
 
@@ -1923,10 +1816,10 @@ client.on("guildMemberAdd", async (member) => {
   }, 300000);
 });
 
-// client.login(token);
-// (async () => {
-//   await connect(uri).catch(console.error);
-// })();
+client.login(token);
+(async () => {
+  await connect(uri).catch(console.error);
+})();
 
 client.login(process.env.token);
 (async () => {
