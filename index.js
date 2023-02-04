@@ -739,11 +739,13 @@ client.on("messageReactionAdd", async (reaction, user) => {
         if (error) {
           console.log(error);
         } else {
-          console.log("New FAQ added to database");
           // fetching the new data from the database
-          fetch();
+          await fetch();
 
-          await replyMessage.react("💾");
+          await replyMessage.react("💾").then(() => {
+            console.log(faq);
+            console.log("New FAQ added to database");
+          });
         }
       });
     } catch (error) {
