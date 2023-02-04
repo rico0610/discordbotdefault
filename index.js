@@ -991,7 +991,7 @@ client.on("messageCreate", async (msg) => {
         return;
       }
     } else {
-      if (maxSimilarity < 0.5 || index === -1) {
+      if (maxSimilarity === 0) {
         console.log("No FAQ found");
 
         try {
@@ -1038,7 +1038,11 @@ client.on("messageCreate", async (msg) => {
         try {
           // Select the FAQ with the highest cosine similarity score as the most relevant answer
 
-          const prompt = `Act as an AI chatbot named Steve that is positive, friendly and helpful. You are talking to a person who is asking you questions about your product and you are answering them with the most relevant answer from the FAQ which is only limited to ${information}. Do not share other information aside from this.
+          const prompt = `Act as an AI chatbot named Steve that is positive, friendly and helpful. You are talking to a person who is asking you questions about your product and you are answering them with the most relevant answer from the FAQ which is only limited to the information below.
+
+          information: ${information}
+
+          if the information not relevant to the question, reply with "Sorry, It seems I don't have the answer for that. Please try to rephrase your question to be more specific or your can ask ${modRole} instead if your concern requires an immediate attention of our team."
 
           ${conversationHistory}
 
