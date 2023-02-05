@@ -63,10 +63,10 @@ const guildId = "1056069438564220999";
 const channelId = "1059713593534324746";
 const gameChannel = "1057293089183629342";
 const channelForCheckingLevel = "1060421595702767616";
-const AIChannelId = "1057559988840701952";
-const botControlChannelId = "1070614249392578570";
-// const AIChannelId = "1069876640877920327"; //-for testing
-// const botControlChannelId = "1054312191689510983"; //-for testing
+// const AIChannelId = "1057559988840701952";
+// const botControlChannelId = "1070614249392578570";
+const AIChannelId = "1069876640877920327"; //-for testing
+const botControlChannelId = "1054312191689510983"; //-for testing
 
 //---- for dynamically retrieving command files ----
 client.commands = new Collection();
@@ -839,13 +839,13 @@ client.on("messageCreate", async (msg) => {
   }
 
   //--- FOR AI CONVERSATION ---
-  const resetButton = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("reset")
-      .setLabel("Reset Convo")
-      .setEmoji("🔄")
-      .setStyle(ButtonStyle.Primary)
-  );
+  // const resetButton = new ActionRowBuilder().addComponents(
+  //   new ButtonBuilder()
+  //     .setCustomId("reset")
+  //     .setLabel("Reset Convo")
+  //     .setEmoji("🔄")
+  //     .setStyle(ButtonStyle.Primary)
+  // );
 
   //find a role with the name "Community Moderator"
   const modRole = msg.guild.roles.cache.find(
@@ -859,31 +859,36 @@ client.on("messageCreate", async (msg) => {
     if (msg.author.bot) return;
 
     // Save the conversation history to the conversationhistory variable
-    let conversationHistory = "";
+    // let conversationHistory = "";
 
-    // Get the conversation history for the user
-    conversation.findOne({ userId: msg.author.id }, (error, conversation) => {
-      if (error) {
-        console.error(error);
-      } else if (conversation) {
-        // Convert the conversation data to a string
-        conversation.conversation.forEach((item) => {
-          conversationHistory += `customer: ${item.question}\nai: ${item.answer}\n`;
-        });
-      } else {
-        console.log("No conversation history found");
-      }
-    });
+    // // Get the conversation history for the user
+    // conversation.findOne({ userId: msg.author.id }, (error, conversation) => {
+    //   if (error) {
+    //     console.error(error);
+    //   } else if (conversation) {
+    //     // Convert the conversation data to a string
+    //     conversation.conversation.forEach((item) => {
+    //       conversationHistory += `customer: ${item.question}\nai: ${item.answer}\n`;
+    //     });
+    //   } else {
+    //     console.log("No conversation history found");
+    //   }
+    // });
 
     //generate a code to find the user id from the mongo db and get the data from the db
-    const conversationData = await conversation.findOne({
-      userId: msg.author.id,
-    });
+    // const conversationData = await conversation.findOne({
+    //   userId: msg.author.id,
+    // });
 
     try {
       // Select the FAQ with the highest cosine similarity score as the most relevant answer
 
-      const prompt = `Act as a chat support named Steve for brandless ph. Use the following information to answer a question. Your answer should only be limted to the information given and should not deviate from it. If the information to answer the question is not available to the given information, answer with "Sorry, it seems I don't have the answer to that. Please try to rephrase your question to be more specific, or you can ask the ${modRole} instead if your concern requires the immediate attention of our team." Then stop the conversation."
+      const prompt = `Act as a chat support named Steve for brandless ph. Use the following information to answer a question. 
+      
+      Follow this rule strictly when creating your response to a question:
+      1. Your answer should only be limited to the given information and should not deviate from it, and do not use any data from the internet. 
+      2. Your response should only be limited to 30 words.
+      3. If the information to answer the question is not available to the given information, answer with "Sorry, it seems I don't have the answer to that. You can ask the ${modRole} instead if your concern requires the immediate attention of our team." Then stop the conversation.
 
       Given information: ${faq}. 
       
@@ -893,41 +898,47 @@ client.on("messageCreate", async (msg) => {
 
       const answer = await ask(prompt); //prompt GPT-3
 
-      if (!conversationData) {
-        console.log(answer);
-        const newConversation = new conversation({
-          userId: msg.author.id,
-          conversation: {
-            customer: msg.content,
-            ai: answer,
-          },
-        });
+      await msg.channel.sendTyping();
+      await wait(2000);
+      await msg.reply({
+        content: answer,
+      });
 
-        await newConversation.save().then(async () => {
-          await msg.channel.sendTyping();
-          await wait(2000);
-          await msg.reply({
-            content: answer,
-            components: [resetButton],
-          });
-        });
-      } else {
-        //add the new conversation to the db
-        console.log(answer);
-        conversationData.conversation.push({
-          customer: msg.content,
-          ai: answer,
-        });
+      // if (!conversationData) {
+      //   console.log(answer);
+      //   const newConversation = new conversation({
+      //     userId: msg.author.id,
+      //     conversation: {
+      //       customer: msg.content,
+      //       ai: answer,
+      //     },
+      //   });
 
-        await conversationData.save().then(async () => {
-          await msg.channel.sendTyping();
-          await wait(2000);
-          await msg.reply({
-            content: answer,
-            components: [resetButton],
-          });
-        });
-      }
+      //   await newConversation.save().then(async () => {
+      //     await msg.channel.sendTyping();
+      //     await wait(2000);
+      //     await msg.reply({
+      //       content: answer,
+      //       components: [resetButton],
+      //     });
+      //   });
+      // } else {
+      //   //add the new conversation to the db
+      //   console.log(answer);
+      //   conversationData.conversation.push({
+      //     customer: msg.content,
+      //     ai: answer,
+      //   });
+
+      //   await conversationData.save().then(async () => {
+      //     await msg.channel.sendTyping();
+      //     await wait(2000);
+      //     await msg.reply({
+      //       content: answer,
+      //       components: [resetButton],
+      //     });
+      //   });
+      // }
     } catch (error) {
       console.error(error);
       return;
