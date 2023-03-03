@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const faqSchema = new mongoose.Schema({
-  answer: {
+  NOTES: {
     type: String,
     required: false,
   },

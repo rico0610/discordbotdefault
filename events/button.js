@@ -14,6 +14,7 @@ const {
 const { Captcha } = require("captcha-canvas");
 const { writeFileSync } = require("fs");
 const discordTranscripts = require("discord-html-transcripts");
+const firstResponse = require("../firstResponseSchema/firstResponse");
 
 const wait = require("node:timers/promises").setTimeout;
 
@@ -86,19 +87,41 @@ module.exports = {
             console.log(ID);
             console.log("ticket channel not found");
           } else {
-            const attachment = await discordTranscripts.createTranscript(
-              ticketToClose
-            );
-
-            const transcriptsChannel =
-              await interaction.guild.channels.cache.find(
-                (channel) => channel.id === "1056850849671938048"
-              );
-
-            transcriptsChannel.send({
-              content: `Ticket close by ${interaction.user}`,
-              files: [attachment],
+            // delete the data from firstResponse in the database
+            await firstResponse.findOneAndDelete({
+              channelId: ticketToClose.id,
             });
+
+            // get the timestamp of the ticket that is being closed
+            const date = new Date();
+            const timestamp = date.getTime();
+            // convert the timestamp to date format
+            const dateObject = new Date(timestamp);
+            const humanDateFormat = dateObject.toLocaleString();
+
+            ticketToClose
+              .send({
+                embeds: [
+                  new EmbedBuilder()
+                    .setDescription(`**Ticket Closed:** ${humanDateFormat}`)
+                    .setColor("#020303"),
+                ],
+              })
+              .then(async () => {
+                const attachment = await discordTranscripts.createTranscript(
+                  ticketToClose
+                );
+
+                const transcriptsChannel =
+                  await interaction.guild.channels.cache.find(
+                    (channel) => channel.id === "1067190447291781230"
+                  );
+
+                transcriptsChannel.send({
+                  content: `Ticket close by ${interaction.user}`,
+                  files: [attachment],
+                });
+              });
           }
 
           interaction.update({

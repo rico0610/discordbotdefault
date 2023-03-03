@@ -7,7 +7,7 @@ const conversationSchema = new mongoose.Schema({
   },
   conversation: [
     {
-      customer: {
+      person: {
         type: String,
         required: true,
       },
@@ -17,6 +17,10 @@ const conversationSchema = new mongoose.Schema({
       },
     },
   ],
+  count: {
+    type: Number,
+    required: true,
+  },
 });
 
 module.exports = mongoose.model("conversationSchema", conversationSchema);

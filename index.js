@@ -7,10 +7,21 @@ const userLevel = require("./levelSchema/userLevel");
 const conversation = require("./conversationSchema/conversation");
 const stickySchema = require("./stickySchema/sticky");
 const faqs = require("./faqSchema/faqs");
+const firstResponse = require("./firstResponseSchema/firstResponse");
 const https = require("https");
-//const InviteData = require("./inviteSchema/invite");
 const { ask } = require("./openAI.js");
 const wait = require("node:timers/promises").setTimeout;
+//const InviteData = require("./inviteSchema/invite");
+// const spawner = require("child_process").spawn; // for passing string data
+const {
+  initPinecone,
+  createIndex,
+  upsertVectors,
+  queryIndex,
+} = require("./AIconversation.js");
+
+const { googleSearch } = require("./google.js");
+
 // const {
 //   token,
 //   uri,
@@ -63,10 +74,21 @@ const guildId = "1056069438564220999";
 const channelId = "1059713593534324746";
 const gameChannel = "1057293089183629342";
 const channelForCheckingLevel = "1060421595702767616";
+const errorChannelId = "1054312191689510983";
+let errorChannel;
 // const AIChannelId = "1057559988840701952";
 // const botControlChannelId = "1070614249392578570";
 const AIChannelId = "1069876640877920327"; //-for testing
 const botControlChannelId = "1054312191689510983"; //-for testing
+const timeouts = new Map();
+let vectorChannel;
+
+// create the client.on ready
+client.on(Events.ClientReady, async () => {
+  initPinecone();
+  errorChannel = await client.channels.fetch(errorChannelId);
+  vectorChannel = client.channels.cache.get("1054312191689510983");
+});
 
 //---- for dynamically retrieving command files ----
 client.commands = new Collection();
@@ -106,6 +128,8 @@ for (const file of eventFiles) {
     client.on(event.name, (...args) => event.execute(...args));
   }
 }
+
+//-----------------------------------------------------------------------------------------------------------
 
 let coinSide;
 
@@ -580,586 +604,609 @@ function makeBotMove() {
 //   "🇨🇳": "china",
 // };
 
-//-- FOR AI FEATURES ---
+//---------------------------------- FOR AI FEATURES ----------------------------------
+// let faq = [
+//   "I was created by Brandless PH team to help crypto communities get answers to commonly asked questions about a crypto project.",
+//   "I'm a bot that helps you get answers to commonly asked questions about a crypto project.",
+//   "I only answer questions about a crypto project.",
+//   "The payment options for Brandless PH's services are currently not disclosed.",
+// ];
 
-let faq = [
-  "I was created by Brandless PH team to help crypto communities get answers to commonly asked questions about a crypto project.",
-  "I'm a bot that helps you get answers to commonly asked questions about a crypto project.",
-  "I only answer questions about a crypto project.",
-  "The payment options for Brandless PH's services are currently not disclosed.",
+// //--- FUNCTIONS FOR FETCHING DATA FROM MONGODB WHEN BOT RESTARTS ----
+// function fetch() {
+//   faqs.find({}, (error, faqs) => {
+//     if (error) {
+//       msg.reply({
+//         embeds: [
+//           new EmbedBuilder()
+//             .setDescription(`**Error fetching FAQ data: ${error}.**`)
+//             .setColor("#303434"),
+//         ],
+//       });
+//     } else {
+//       // Create an array of the answers
+//       faq = faqs.map((faq) => faq.answer);
+//       console.log(faq);
+//       console.log("FAQ data loaded");
+//     }
+//   });
+// }
+
+// fetch();
+
+// //--- FUNCTIONS FOR CREATING A TXT FILE
+// async function main() {
+//   //get the channel using the channel id
+//   const channel = await client.channels.fetch(botControlChannelId);
+
+//   faqs.find({}, (error, faqs) => {
+//     if (error) {
+//       console.log(error);
+//     } else {
+//       // Create an array of the answers
+//       const faqFile = faqs.map((faq) => faq.answer);
+//       const fileData = faqFile.join("\n");
+//       fs.writeFile("faq.txt", fileData, (err) => {
+//         if (err) {
+//           console.log(`Error writing to file: ${err}`);
+//         } else {
+//           console.log("The faq data has been written to the file");
+//           channel.send({
+//             files: [
+//               {
+//                 attachment: "faq.txt",
+//                 name: "faq.txt",
+//               },
+//             ],
+//           });
+//         }
+//       });
+//     }
+//   });
+// }
+
+// client.on("messageReactionAdd", async (reaction, user) => {
+//   if (user.bot) return;
+
+//   //get the reaction channel
+//   if (reaction.message.channelId !== AIChannelId) return;
+
+//   if (reaction.message.partial) {
+//     try {
+//       await reaction.message.fetch();
+//     } catch (error) {
+//       console.log("Something went wrong when fetching the message: ", error);
+//       return;
+//     }
+//   }
+
+//   // // Check if the user already has another role based on the given object
+//   // const member = await reaction.message.guild.members.fetch(user.id);
+//   // const userRoles = member.roles.cache.filter((role) => {
+//   //   return Object.values(rolesEmojis).includes(role.name);
+//   // });
+
+//   // const currentRole = member.roles.cache.find((r) =>
+//   //   Object.values(rolesEmojis).includes(r.name)
+//   // );
+
+//   // // If the user already has another role based on the given object, ask them to remove it
+//   // if (userRoles.size > 0 && currentRole) {
+//   //   try {
+//   //     await reaction.users.remove(user.id);
+//   //   } catch (error) {
+//   //     console.error(`Could not send message to ${member.user.username}`);
+//   //   }
+//   //   return;
+//   // }
+
+//   // const emoji = reaction.emoji.name;
+//   // if (rolesEmojis[emoji]) {
+//   //   const role = reaction.message.guild.roles.cache.find(
+//   //     (r) => r.name === rolesEmojis[emoji]
+//   //   );
+//   //   reaction.message.guild.members.cache.get(user.id).roles.add(role);
+//   // }
+
+//   // add a check for reaction and reaction should be given by the Admin.
+//   // Get the user who reacted
+//   const guildMember = reaction.message.guild.members.cache.get(user.id);
+
+//   // Check if the user who reacted is a member of the guild
+//   if (!guildMember) return console.log("User not found");
+
+//   if (
+//     reaction.emoji.name === "✅" &&
+//     guildMember.roles.cache.some((role) => role.name === "Admin")
+//   ) {
+//     try {
+//       // check if there is a reaction ❌ on the message and remove it
+//       if (reaction.message.reactions.cache.get("❌")) {
+//         reaction.message.reactions.cache.get("❌").remove();
+//       }
+
+//       const replyMessage = reaction.message;
+//       const answer = replyMessage.content;
+
+//       // console.log(question);
+//       console.log(answer);
+
+//       // add the question and answer to an existing document in the database
+//       const newFaq = new faqs({
+//         answer: answer,
+//       });
+
+//       newFaq.save(async (error) => {
+//         if (error) {
+//           console.log(error);
+//         } else {
+//           // fetching the new data from the database
+//           await fetch();
+
+//           await replyMessage.react("💾").then(() => {
+//             console.log("New FAQ added to database");
+//           });
+//         }
+//       });
+//     } catch (error) {
+//       console.log("Something went wrong when fetching the message: ", error);
+//       return;
+//     }
+//   } else {
+//     console.log("Not an admin");
+//   }
+// });
+
+// client.on("messageReactionRemove", async (reaction, user) => {
+//   // const emoji = reaction.emoji.name;
+//   // const member = reaction.message.guild.members.cache.get(user.id);
+
+//   // if (user.bot) return;
+
+//   // if (rolesEmojis[emoji]) {
+//   //   const role = reaction.message.guild.roles.cache.find(
+//   //     (r) => r.name === rolesEmojis[emoji]
+//   //   );
+//   //   member.roles.remove(role);
+//   // }
+
+//   if (reaction.message.channelId !== AIChannelId) return;
+
+//   //--- getting the reacted message and reply --
+//   const replyMessage = reaction.message;
+//   const answer = replyMessage.content;
+
+//   // check if the admin removed the checked reaction
+//   // Get the user who reacted
+//   const guildMember = reaction.message.guild.members.cache.get(user.id);
+
+//   // Check if the user who reacted is a member of the guild
+//   if (!guildMember) return console.log("User not found");
+
+//   if (
+//     reaction.emoji.name === "✅" &&
+//     guildMember.roles.cache.some((role) => role.name === "Admin")
+//   ) {
+//     // check if there is a reaction 💾 on the message and remove it
+//     if (reaction.message.reactions.cache.get("💾")) {
+//       reaction.message.reactions.cache.get("💾").remove();
+//     }
+
+//     // delete the question and answer from the mongoDB database
+
+//     try {
+//       faqs.deleteOne({ answer: answer }, function (err, obj) {
+//         if (err) throw err;
+
+//         console.log("1 document deleted");
+//       });
+
+//       await wait(2000);
+//       fetch();
+
+//       await replyMessage.react("❌");
+//     } catch (err) {
+//       console.log(err);
+//     }
+//   }
+// });
+
+//--- FOR TICKET TIMESTAMPS ----
+
+const parentIds = [
+  "1069452837999869972",
+  "1069452884531478588",
+  "1069452957952770141",
+  "1069453014882074756",
 ];
 
-//--- FUNCTIONS FOR FETCHING DATA FROM MONGODB WHEN BOT RESTARTS ----
-function fetch() {
-  faqs.find({}, (error, faqs) => {
-    if (error) {
-      msg.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setDescription(`**Error fetching FAQ data: ${error}.**`)
-            .setColor("#303434"),
-        ],
-      });
-    } else {
-      // Create an array of the answers
-      faq = faqs.map((faq) => faq.answer);
-      console.log(faq);
-      console.log("FAQ data loaded");
+client.on("messageCreate", async (msg) => {
+  // listen for messages from the specified category ids
+  if (parentIds.includes(msg.channel.parentId)) {
+    const botMessages = msg.channel.messages.cache.filter(
+      (m) => m.author.id === client.user.id
+    );
+    if (botMessages.size > 2) return; // check for 3rd message from the bot
+
+    //check if the channel id is in the firstResponse database using findOne
+    const firstResponseChannel = await firstResponse.findOne({
+      channelId: msg.channel.id,
+    });
+
+    if (firstResponseChannel) return;
+
+    // capture the timestamp of the first message from a member with Moderator role
+    if (msg.member.roles.cache.some((role) => role.name === "Moderator")) {
+      // check if there is a previous message from the moderator
+      const moderatorMessages = msg.channel.messages.cache.filter(
+        (m) => m.author.id === msg.author.id
+      );
+      if (moderatorMessages.size <= 1) {
+        // get the timestamp of the ticket creation
+        const date = new Date();
+        const timestamp = date.getTime();
+        // convert the timestamp to date format
+        const dateObject = new Date(timestamp);
+        const humanDateFormat = dateObject.toLocaleString();
+
+        msg
+          .reply({
+            embeds: [
+              new EmbedBuilder()
+                .setDescription(`**First Response Time:** ${humanDateFormat}`)
+                .setColor("#303434"),
+            ],
+          })
+          .then(async () => {
+            // save the channel id to the firstResponse database
+            try {
+              const newFirstResponse = new firstResponse({
+                channelId: msg.channel.id,
+              });
+
+              await newFirstResponse.save();
+            } catch (err) {
+              console.log(err);
+            }
+          });
+      }
     }
-  });
-}
+  }
+});
 
-fetch();
+//--- FOR UPLOADING VECTORS TO PINECONE ---
 
-//--- FUNCTIONS FOR CREATING A TXT FILE
-async function main() {
-  //get the channel using the channel id
-  const channel = await client.channels.fetch(botControlChannelId);
+client.on("messageCreate", async (msg) => {
+  if (msg.attachments.size > 0) {
+    const attachment = msg.attachments.first();
+    const fileName = attachment.name;
+    const fileExtension = fileName.split(".").pop();
+    if (fileExtension === "xlsx") {
+      const filePath = `./${fileName}`;
+      const file = fs.createWriteStream(filePath);
 
-  faqs.find({}, (error, faqs) => {
-    if (error) {
-      console.log(error);
-    } else {
-      // Create an array of the answers
-      const faqFile = faqs.map((faq) => faq.answer);
-      const fileData = faqFile.join("\n");
-      fs.writeFile("faq.txt", fileData, (err) => {
-        if (err) {
-          console.log(`Error writing to file: ${err}`);
-        } else {
-          console.log("The faq data has been written to the file");
-          channel.send({
-            files: [
-              {
-                attachment: "faq.txt",
-                name: "faq.txt",
-              },
+      https.get(attachment.url, function (response) {
+        response.pipe(file);
+        file.on("finish", async function () {
+          file.close();
+          console.log(`File downloaded to ${filePath}.`);
+          vectorChannel.send({
+            embeds: [
+              new EmbedBuilder()
+                .setDescription("⬇️ Files downloaded and being parsed")
+                .setColor("#303434"),
             ],
           });
-        }
-      });
-    }
-  });
-}
 
-client.on("messageReactionAdd", async (reaction, user) => {
-  if (user.bot) return;
-
-  //get the reaction channel
-  if (reaction.message.channelId !== AIChannelId) return;
-
-  if (reaction.message.partial) {
-    try {
-      await reaction.message.fetch();
-    } catch (error) {
-      console.log("Something went wrong when fetching the message: ", error);
-      return;
-    }
-  }
-
-  // // Check if the user already has another role based on the given object
-  // const member = await reaction.message.guild.members.fetch(user.id);
-  // const userRoles = member.roles.cache.filter((role) => {
-  //   return Object.values(rolesEmojis).includes(role.name);
-  // });
-
-  // const currentRole = member.roles.cache.find((r) =>
-  //   Object.values(rolesEmojis).includes(r.name)
-  // );
-
-  // // If the user already has another role based on the given object, ask them to remove it
-  // if (userRoles.size > 0 && currentRole) {
-  //   try {
-  //     await reaction.users.remove(user.id);
-  //   } catch (error) {
-  //     console.error(`Could not send message to ${member.user.username}`);
-  //   }
-  //   return;
-  // }
-
-  // const emoji = reaction.emoji.name;
-  // if (rolesEmojis[emoji]) {
-  //   const role = reaction.message.guild.roles.cache.find(
-  //     (r) => r.name === rolesEmojis[emoji]
-  //   );
-  //   reaction.message.guild.members.cache.get(user.id).roles.add(role);
-  // }
-
-  // add a check for reaction and reaction should be given by the Admin.
-  // Get the user who reacted
-  const guildMember = reaction.message.guild.members.cache.get(user.id);
-
-  // Check if the user who reacted is a member of the guild
-  if (!guildMember) return console.log("User not found");
-
-  if (
-    reaction.emoji.name === "✅" &&
-    guildMember.roles.cache.some((role) => role.name === "Admin")
-  ) {
-    try {
-      // check if there is a reaction ❌ on the message and remove it
-      if (reaction.message.reactions.cache.get("❌")) {
-        reaction.message.reactions.cache.get("❌").remove();
-      }
-
-      const replyMessage = reaction.message;
-      const answer = replyMessage.content;
-
-      // console.log(question);
-      console.log(answer);
-
-      // add the question and answer to an existing document in the database
-      const newFaq = new faqs({
-        answer: answer,
-      });
-
-      newFaq.save(async (error) => {
-        if (error) {
-          console.log(error);
-        } else {
-          // fetching the new data from the database
-          await fetch();
-
-          await replyMessage.react("💾").then(() => {
-            console.log(faq);
-            console.log("New FAQ added to database");
-          });
-        }
-      });
-    } catch (error) {
-      console.log("Something went wrong when fetching the message: ", error);
-      return;
-    }
-  } else {
-    console.log("Not an admin");
-  }
-});
-
-client.on("messageReactionRemove", async (reaction, user) => {
-  // const emoji = reaction.emoji.name;
-  // const member = reaction.message.guild.members.cache.get(user.id);
-
-  // if (user.bot) return;
-
-  // if (rolesEmojis[emoji]) {
-  //   const role = reaction.message.guild.roles.cache.find(
-  //     (r) => r.name === rolesEmojis[emoji]
-  //   );
-  //   member.roles.remove(role);
-  // }
-
-  if (reaction.message.channelId !== AIChannelId) return;
-
-  //--- getting the reacted message and reply --
-  const replyMessage = reaction.message;
-  const answer = replyMessage.content;
-
-  // check if the admin removed the checked reaction
-  // Get the user who reacted
-  const guildMember = reaction.message.guild.members.cache.get(user.id);
-
-  // Check if the user who reacted is a member of the guild
-  if (!guildMember) return console.log("User not found");
-
-  if (
-    reaction.emoji.name === "✅" &&
-    guildMember.roles.cache.some((role) => role.name === "Admin")
-  ) {
-    // check if there is a reaction 💾 on the message and remove it
-    if (reaction.message.reactions.cache.get("💾")) {
-      reaction.message.reactions.cache.get("💾").remove();
-    }
-
-    // delete the question and answer from the mongoDB database
-
-    try {
-      faqs.deleteOne({ answer: answer }, function (err, obj) {
-        if (err) throw err;
-
-        console.log("1 document deleted");
-      });
-
-      await wait(2000);
-      fetch();
-
-      await replyMessage.react("❌");
-    } catch (err) {
-      console.log(err);
-    }
-  }
-});
-
-//-------POSTING AND AI CONVO -------
-client.on("messageCreate", async (msg) => {
-  //-- FOR STORING FAQ DATA IN MONGODB VIA ATTACHMENT FILES ----
-  if (
-    msg.attachments.size > 0 &&
-    msg.attachments.first().name === "faqs.txt" &&
-    msg.member.roles.cache.some((role) => role.name === "Admin")
-  ) {
-    const attachment = msg.attachments.first();
-
-    // Download the .txt file and read its contents
-    let data = "";
-    https.get(attachment.url, (res) => {
-      res.on("data", (chunk) => {
-        data += chunk;
-      });
-      res.on("end", () => {
-        // Parse the data as JSON
-        const faqData = data.split("\n").map((answer) => ({ answer }));
-
-        faqs.insertMany(faqData, async (error) => {
-          if (error) {
-            await msg.reply({
-              embeds: [
-                new EmbedBuilder()
-                  .setDescription(`**Error creating FAQ data: ${error}.**`)
-                  .setColor("#303434"),
-              ],
-            });
-          } else {
-            await msg
-              .reply({
-                embeds: [
-                  new EmbedBuilder()
-                    .setDescription(`**FAQ data created in DB successfully!**`)
-                    .setColor("#303434"),
-                ],
-              })
-              .then(async () => {
-                await fetch();
-                await wait(4000);
-                console.log(faq);
-              });
-          }
+          await createIndex(vectorChannel);
+          await upsertVectors(filePath, vectorChannel);
         });
       });
-    });
+    }
   }
+});
 
-  //--- FOR AI CONVERSATION ---
-  // const resetButton = new ActionRowBuilder().addComponents(
-  //   new ButtonBuilder()
-  //     .setCustomId("reset")
-  //     .setLabel("Reset Convo")
-  //     .setEmoji("🔄")
-  //     .setStyle(ButtonStyle.Primary)
-  // );
+//----- FOR AI FEATURES -------
 
-  //find a role with the name "Community Moderator"
+let template = `Act as an AI chatbot that is having a conversation with a person. Strickly using only the list of contexts provided below, select carefully the information to answer the person's question or follow up message from the previous conversation as truthfully as possible. If there are any relevant available URLs or links, add them as sources in your response and ask a follow up question based on the available information in the context. Do not, at any cost, create your own information or URLs just to answer a question. If the person doesn't have any question, respond in a friendly manner.`;
+
+//------- AI CONVO -------
+client.on("messageCreate", async (msg) => {
   const modRole = msg.guild.roles.cache.find(
-    (role) => role.name === "moderator"
+    (role) => role.name === "Moderator"
   );
 
+  //--- FOR PREVENTING SPAM ---
+  // Get the timestamp of the last message sent by the member
+  const lastMessageTimestamp = timeouts.get(msg.author.id);
+
+  // Check if the member has sent a message within the timeout period
   if (
-    msg.channel.id === AIChannelId &&
-    !msg.member.roles.cache.some((role) => role.name === "Admin")
+    lastMessageTimestamp &&
+    Date.now() - lastMessageTimestamp < 5 * 1000 &&
+    msg.channel.id === AIChannelId
   ) {
     if (msg.author.bot) return;
 
-    // Save the conversation history to the conversationhistory variable
-    // let conversationHistory = "";
-
-    // // Get the conversation history for the user
-    // conversation.findOne({ userId: msg.author.id }, (error, conversation) => {
-    //   if (error) {
-    //     console.error(error);
-    //   } else if (conversation) {
-    //     // Convert the conversation data to a string
-    //     conversation.conversation.forEach((item) => {
-    //       conversationHistory += `customer: ${item.question}\nai: ${item.answer}\n`;
-    //     });
-    //   } else {
-    //     console.log("No conversation history found");
-    //   }
-    // });
-
-    //generate a code to find the user id from the mongo db and get the data from the db
-    // const conversationData = await conversation.findOne({
-    //   userId: msg.author.id,
-    // });
-
-    try {
-      // Select the FAQ with the highest cosine similarity score as the most relevant answer
-
-      const prompt = `Act as a chat support named Steve for brandless ph. Use the following information to answer a question. 
-      
-      Follow this rule strictly when creating your response to a question:
-      1. Your answer should only be limited to the given information and should not deviate from it, and do not use any data from the internet. 
-      2. Your response should only be limited to 30 words.
-      3. If the information to answer the question is not available to the given information, answer with "Sorry, it seems I don't have the answer to that. You can ask the ${modRole} instead if your concern requires the immediate attention of our team." Then stop the conversation.
-
-      Given information: ${faq}. 
-      
-      Question: ${msg.content} 
-      
-      Steve: `;
-
-      const answer = await ask(prompt); //prompt GPT-3
-
-      await msg.channel.sendTyping();
-      await wait(2000);
-      await msg.reply({
-        content: answer,
-      });
-
-      // if (!conversationData) {
-      //   console.log(answer);
-      //   const newConversation = new conversation({
-      //     userId: msg.author.id,
-      //     conversation: {
-      //       customer: msg.content,
-      //       ai: answer,
-      //     },
-      //   });
-
-      //   await newConversation.save().then(async () => {
-      //     await msg.channel.sendTyping();
-      //     await wait(2000);
-      //     await msg.reply({
-      //       content: answer,
-      //       components: [resetButton],
-      //     });
-      //   });
-      // } else {
-      //   //add the new conversation to the db
-      //   console.log(answer);
-      //   conversationData.conversation.push({
-      //     customer: msg.content,
-      //     ai: answer,
-      //   });
-
-      //   await conversationData.save().then(async () => {
-      //     await msg.channel.sendTyping();
-      //     await wait(2000);
-      //     await msg.reply({
-      //       content: answer,
-      //       components: [resetButton],
-      //     });
-      //   });
-      // }
-    } catch (error) {
-      console.error(error);
-      return;
-    }
-  }
-
-  //--- FOR UPDATING MEMBERS COUNT AS A CHANNEL NAME ----
-  if (
-    msg.content === "!updateCount" &&
-    msg.member.roles.cache.some((role) => role.name === "Admin")
-  ) {
-    console.log(msg.channel.id);
-
-    // Get the text channel by ID
-    const channel = msg.guild.channels.cache.get(msg.channel.id);
-
-    // Get the member count of the channel
-    const memberCount = channel.members.size;
-
-    // Update the channel name with the member count
-    channel.setName(`total members: ${memberCount}`);
-  }
-
-  //---- FOR REACTION ROLES -----
-  if (msg.content === "!region") {
-    const embed = new EmbedBuilder()
-      .setTitle("**__Regional Community__**")
-      .setDescription(
-        "Please react your country's flag to access regional channel."
-      )
-      .addFields({
-        name: "Note:",
-        value:
-          "To access a different regional channel, remove first your current reaction then react to your desired flag emoji.",
-      })
-      .setThumbnail("https://media.tenor.com/zlN3e54Y-uwAAAAi/victim1-map.gif")
-      .setColor("#000000");
-
-    const guild = client.guilds.cache.get(guildId);
-    const channel = guild.channels.cache.get(channelId);
-
-    channel
+    msg.channel
       .send({
-        embeds: [embed],
+        embeds: [
+          new EmbedBuilder()
+            .setDescription(`${msg.author}, please don't spam.`)
+            .setColor("#303434"),
+        ],
       })
-      .then(async (message) => {
-        for (const emoji in rolesEmojis) {
-          await message.react(emoji);
-        }
+      .then(async (sentMessage) => {
+        await wait(5000);
+        sentMessage.delete();
       });
+
+    // Timeout the member
+    msg.member
+      .timeout(60000)
+      .then(() => {
+        console.log(`Timeout successful for member ${msg.author.username}`);
+      })
+      .catch((error) => {
+        console.log(
+          `Error occurred while trying to timeout member ${msg.author.username}: ${error}`
+        );
+      });
+  } else {
+    // Update the timestamp for the member
+    timeouts.set(msg.author.id, Date.now());
   }
 
-  //--- FOR WELCOME CHANNEL POST ---
-  if (
-    msg.content === "!welcome" &&
-    msg.member.roles.cache.some((role) => role.name === "Admin")
-  ) {
-    const welcomeRow = new ActionRowBuilder().addComponents(
+  //-- FOR STORING FAQ DATA IN MONGODB VIA ATTACHMENT FILES ----
+  // if (
+  //   msg.attachments.size > 0 &&
+  //   msg.attachments.first().name === "Notes.xlsx"
+  // ) {
+  //   const { PythonShell } = require("python-shell");
+  //   const path = require("path");
+  //   const fs = require("fs");
+  //   const attachment = msg.attachments.first();
+  //   const XLSX = require("xlsx");
+
+  //   // Download the .xlsx file and read its contents
+  //   https.get(attachment.url, (res) => {
+  //     let chunks = [];
+  //     res.on("data", (chunk) => {
+  //       chunks.push(chunk);
+  //     });
+  //     res.on("end", async () => {
+  //       const buffer = Buffer.concat(chunks);
+
+  //       // Save the file to disk
+  //       const input_datapath = path.join(__dirname, attachment.name);
+  //       fs.writeFileSync(input_datapath, buffer);
+
+  //       // Execute the Python script with the updated input file path
+  //       const options = {
+  //         scriptPath: path.join(__dirname, "/"), // set the directory where the script is located
+  //         args: [input_datapath],
+  //       };
+
+  //       PythonShell.run("embed.py", options, function (err, results) {
+  //         if (err) throw err;
+  //         console.log("Python script finished:", results);
+  //       });
+
+  //       try {
+  //         await msg.reply({
+  //           embeds: [
+  //             new EmbedBuilder()
+  //               .setDescription(
+  //                 `**Notes file uploaded. Please allow at least 1 minute to fully complete the process!**`
+  //               )
+  //               .setColor("#303434"),
+  //           ],
+  //         });
+  //       } catch (error) {
+  //         console.error(error);
+  //       }
+  //     });
+  //   });
+  // }
+
+  //--- FOR AI CONVERSATION ---
+  if (msg.channel.id === AIChannelId) {
+    if (
+      msg.author.bot ||
+      msg.member.roles.cache.some((role) => role.name === "Moderator")
+    )
+      return;
+
+    const resetButton = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setLabel("Website")
-        .setEmoji("🌐")
-        .setStyle(ButtonStyle.Link)
-        .setURL("https://www.bloktopia.com/"),
-      new ButtonBuilder()
-        .setLabel("JOBE")
-        .setStyle(ButtonStyle.Link)
-        .setURL("https://www.bloktopia.com/jobe/"),
-      new ButtonBuilder()
-        .setLabel("Staking")
-        .setStyle(ButtonStyle.Link)
-        .setURL("https://www.bloktopia.com/staking-live/"),
-      new ButtonBuilder()
-        .setLabel("NFT's")
-        .setStyle(ButtonStyle.Link)
-        .setURL("https://landsale.bloktopia.com/")
+        .setCustomId("reset")
+        .setLabel("Reset Convo")
+        .setStyle(ButtonStyle.Danger)
     );
 
-    const socialRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setLabel("Twitter")
-        .setStyle(ButtonStyle.Link)
-        .setURL("https://twitter.com/bloktopia"),
-      new ButtonBuilder()
-        .setLabel("Telegram")
-        .setStyle(ButtonStyle.Link)
-        .setURL("https://t.me/BloktopiaChat"),
-      new ButtonBuilder()
-        .setLabel("YouTube")
-        .setStyle(ButtonStyle.Link)
-        .setURL("http://youtube.com/c/Bloktopia"),
-      new ButtonBuilder()
-        .setLabel("Instagram")
-        .setStyle(ButtonStyle.Link)
-        .setURL("https://www.instagram.com/bloktopiaofficial/")
-    );
-
-    const additionalRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setLabel("Server Rules")
-        .setEmoji("📖")
-        .setStyle(ButtonStyle.Link)
-        .setURL(
-          "https://discord.com/channels/949286419476660225/949304202977497158"
-        ),
-      new ButtonBuilder()
-        .setLabel("Select Region")
-        .setEmoji("🌍")
-        .setStyle(ButtonStyle.Link)
-        .setURL(
-          "https://discord.com/channels/949286419476660225/1065710355076104283"
-        ),
-      new ButtonBuilder()
-        .setLabel("Report Scams")
-        .setEmoji("🚨")
-        .setStyle(ButtonStyle.Link)
-        .setURL(
-          "https://discord.com/channels/949286419476660225/954449292410650624"
-        )
-    );
-
-    msg.channel.send(
-      "https://cdn.discordapp.com/attachments/1059713593534324746/1068753476554866820/teaDAO.gif"
-    );
-
-    msg.channel.send({
-      embeds: [
-        new EmbedBuilder()
-          .setTitle("Welcome to the Bloktopia Discord Server")
-          .setDescription(
-            "To know what is Bloktopia and get familiarize with the server, check the buttons below."
-          )
-          .setColor("#642c5c"),
-      ],
-      components: [welcomeRow],
+    //---- checking the conversation data from the database -----
+    const conversationData = await conversation.findOne({
+      userId: msg.author.id,
     });
 
-    msg.channel.send({
-      embeds: [
-        new EmbedBuilder()
-          .setDescription("Follow us on our social accounts.")
-          .setColor("#642c5c"),
-      ],
-      components: [socialRow],
-    });
+    let promptAnswered = false;
+    let conversationHistory = "";
 
-    msg.channel.send({
-      embeds: [
-        new EmbedBuilder()
-          .setDescription(
-            "Go ahead and feel free to hang around or ask questions."
-          )
-          .setColor("#642c5c")
-          .addFields(
-            { name: "\u200B", value: "**Buttons information:**" },
-            {
-              name: "• `📖 Server Rules`",
-              value: "Displays the server rules.",
-            },
-            {
-              name: "• `🌍 Select Region`",
-              value: "Channel to select and access regional channels.",
-            },
-            {
-              name: "• `🚨 Report Scams`",
-              value: "Channel to report scams.",
+    //---- function to create a memory ------
+    function getMemory() {
+      let memory = "";
+
+      return new Promise((resolve, reject) => {
+        conversation.findOne(
+          { userId: msg.author.id },
+          async (error, conversation) => {
+            if (error) {
+              console.error(error);
+              reject(error);
+            } else if (conversation) {
+              if (!promptAnswered) {
+                conversation.conversation.forEach((item) => {
+                  conversationHistory += `person: ${item.person}\nai: ${item.ai}\n`;
+                });
+                memoryPrompt = `Act as a semantic search information generator. Using the current conversation and the current message below, determine if the person has a follow up question to the latest conversation and create a short unique key information that is no more than 5 words to be used for semantic search. If the current message is a new topic and not related to the current conversation, copy the ${msg.content} as the generated information. Let's think step by step.\nCurrent Conversation:\n${conversationHistory}\n\nCurrent message: ${msg.content}\nKey information:`;
+                memory = await ask(memoryPrompt);
+                promptAnswered = true;
+                resolve(memory);
+              }
+            } else {
+              console.log("No conversation history found");
+              memory = msg.content;
+              resolve(memory);
             }
-          ),
-      ],
-      components: [additionalRow],
-    });
-  }
+          }
+        );
+      });
+    }
 
-  //--- FOR VERIFICATION CHANNEL POST---
+    getMemory()
+      .then(async (memory) => {
+        if (memory === undefined) {
+          msg.reply("An error occured. Please try again later.");
+          return;
+        } else {
+          msg.channel.send({
+            embeds: [
+              new EmbedBuilder()
+                .setDescription(`Searching for: **${memory}** 🔍`)
+                .setColor("#303434"),
+            ],
+          });
+        }
+        console.log(`Here's the current unique info:\n\n${memory}`);
 
-  if (
-    msg.content === "!verify" &&
-    msg.member.roles.cache.some((role) => role.name === "Admin")
-  ) {
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("verify")
-        .setLabel("Verify")
-        .setStyle(ButtonStyle.Primary)
-    );
+        msg.channel.send({
+          embeds: [
+            new EmbedBuilder()
+              .setDescription(`Generating answers for ${msg.author} ⚙️`)
+              .setColor("#303434"),
+          ],
+        });
 
-    msg.channel.send({
-      embeds: [
-        new EmbedBuilder()
-          .setTitle("Accept The Server Rules Before Verifying")
-          .setDescription("Click the ` Complete ` button to begin.")
-          .setImage(
-            "https://media.discordapp.net/attachments/1011586512367911032/1066941479475478559/image.png"
-          )
-          .setColor("#383434"),
-      ],
-    });
+        try {
+          const pineconeResult = await queryIndex(memory);
 
-    msg.channel.send({
-      embeds: [
-        new EmbedBuilder()
-          .setDescription(
-            "**If you don't pass the verification within 5 minutes, you'll be kicked off the server.**"
-          )
-          .setThumbnail(
-            "https://media.discordapp.net/attachments/1011586512367911032/1052634084637147176/1046329820331646986_1.png"
-          )
-          .setColor("#383434"),
-      ],
-    });
+          const googleResult = await googleSearch(memory)
+            .then(async (res) => {
+              const res1href = res[0].href;
+              const res1snippet = res[0].snippetString;
+              const res2href = res[1].href;
+              const res2snippet = res[1].snippetString;
+              const res3href = res[2].href;
+              const res3snippet = res[2].snippetString;
 
-    msg.channel.send({
-      embeds: [
-        new EmbedBuilder()
-          .setTitle("__Verification Required!__")
-          .setDescription(
-            "To access `Brandless PH` server, you need to pass the verification first.\n\nPress on the `verify` button below."
-          )
-          .setColor("#383434"),
-      ],
-      components: [row],
-    });
+              const googlePrompt = `Using the context provided below, create a unique one sentence information that is related to the question. Include any relevant URLs or links to be used as a reference.\n\nQuestion: ${msg.content}\n\nContext 1:\n\n${res1href}\n\n${res1snippet}\n\nContext 2:\n\n${res2href}\n\n${res2snippet}\n\nContext 3:\n\n${res3href}\n\n${res3snippet}`;
+              const googleContext = await ask(googlePrompt);
+
+              // console.log(googleContext);
+
+              return googleContext;
+            })
+            .catch((error) => console.log(error));
+
+          // console.log(`**Pinecone Result:**\n\n${pineconeResult}`);
+          // console.log(`**Google Result:**\n\n${googleResult}`);
+
+          const prompt = `${template}. If the given contexts does not provide the truthful information or the question is not within the context of bloktopia, say, "I'm sorry, I don't know. Please try to rephrase your question to be more specific or you can ask the ${modRole} instead or create a ticket."\n\nPlease think step by step before generating a response."\n\nContext:\n${pineconeResult}11. ${googleResult}\n\nContinue the conversion:\n\n${conversationHistory}person: Hi there.\nai: Hello. How can I help you?\nperson: Thanks for the help. I'm good for now.\nai: You're welcome. Have a great day!\nperson: ${msg.content}\nai:`;
+
+          console.log(prompt);
+
+          const answer = await ask(prompt);
+          promptAnswered = false;
+
+          // check if the answer's content has "This is the error"
+          if (answer.message2 !== undefined) {
+            if (answer.message2.includes("Error encountered")) {
+              // send the error message to the channel
+              errorChannel
+                .send({
+                  embeds: [
+                    new EmbedBuilder()
+                      .setDescription(`${answer.message2}`)
+                      .setThumbnail(
+                        "https://media.tenor.com/eDchk3srtycAAAAi/piffle-error.gif"
+                      )
+                      .setColor("#303434"),
+                  ],
+                })
+                .then(async () => {
+                  await msg.channel.sendTyping();
+                  await wait(2000);
+                  msg.reply({
+                    content: answer.message1,
+                    components: [resetButton],
+                  });
+                });
+
+              return;
+            }
+          }
+
+          if (!conversationData) {
+            console.log("no conversation data");
+            // console.log(prompt);
+            const newConversation = new conversation({
+              userId: msg.author.id,
+              conversation: {
+                person: msg.content,
+                ai: answer,
+              },
+              count: 1,
+            });
+
+            await newConversation.save().then(async () => {
+              await msg.channel.sendTyping();
+              await wait(2000);
+              msg.reply({
+                content: answer,
+                components: [resetButton],
+              });
+            });
+          } else {
+            console.log("Conversation data found");
+            // console.log(prompt);
+            //add the new conversation to the db
+            conversationData.count++;
+            conversationData.conversation.push({
+              person: msg.content,
+              ai: answer,
+            });
+
+            console.log(conversationData.count);
+
+            await conversationData.save().then(async () => {
+              await msg.channel.sendTyping();
+              await wait(2000);
+              msg
+                .reply({
+                  content: answer,
+                  components: [resetButton],
+                })
+                .then(async () => {
+                  //check if the count is 10, if it is, then delete the conversation history
+                  if (conversationData.count === 10) {
+                    await conversationData.deleteOne();
+
+                    await msg.reply({
+                      content:
+                        "Thanks for the chat. We've made 10 conversations already so I'll delete the conversation history now.",
+                      components: [],
+                    });
+                  }
+                });
+            });
+          }
+        } catch (err) {
+          console.log(err);
+        }
+      })
+      .catch((error) => {
+        console.error("An error occurred:", error);
+      });
   }
 });
 
@@ -1453,11 +1500,6 @@ client.on("messageCreate", async (msg) => {
 //   }
 // });
 
-// Pre-process the pre-defined FAQ data into numerical representations
-// let data = fs.readFileSync("./faqs.txt", "utf8");
-// let faqData = JSON.parse(data); //---- INITIALLY IMPORTING THE PROJECTLIST JS FILE -----
-// let faq = faqData.slice();
-
 //------------ HANDLING MSG EVENTS ----------------
 client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;
@@ -1502,35 +1544,6 @@ client.on(Events.MessageCreate, async (message) => {
 //------------ HANDLING EVENTS ----------------
 client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isButton()) {
-    if (interaction.customId === "deleteFaq") {
-      faq = [];
-
-      faqs.deleteMany({}, (error) => {
-        if (error) {
-          interaction.update({
-            embeds: [
-              new EmbedBuilder()
-                .setDescription(`**Error deleting FAQ: ${error}.**`)
-                .setColor("#303434"),
-            ],
-            components: [],
-          });
-
-          return;
-        } else {
-          interaction.update({
-            embeds: [
-              new EmbedBuilder()
-                .setDescription(`**FAQs were deleted successfully from DB!**`)
-                .setColor("#303434"),
-            ],
-            components: [],
-          });
-          return;
-        }
-      });
-    }
-
     if (interaction.customId === "createFile") {
       main();
 
@@ -1549,8 +1562,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
     //--FOR RESETTING AI CONVERSATION ---
     if (interaction.customId === "reset") {
       try {
+        await interaction.deferReply();
         await conversation.deleteOne({ userId: interaction.user.id });
-        await interaction.reply({
+        await interaction.editReply({
           content: `${interaction.user}, Our conversation has been reset.`,
         });
 
