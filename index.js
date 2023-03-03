@@ -74,12 +74,12 @@ const guildId = "1056069438564220999";
 const channelId = "1059713593534324746";
 const gameChannel = "1057293089183629342";
 const channelForCheckingLevel = "1060421595702767616";
-const errorChannelId = "1054312191689510983";
+const errorChannelId = "1060822726945820772";
 let errorChannel;
 // const AIChannelId = "1057559988840701952";
 // const botControlChannelId = "1070614249392578570";
-const AIChannelId = "1069876640877920327"; //-for testing
-const botControlChannelId = "1054312191689510983"; //-for testing
+const AIChannelId = "1057559988840701952"; //-for testing
+const botControlChannelId = "1070614249392578570"; //-for testing
 const timeouts = new Map();
 let vectorChannel;
 
@@ -87,7 +87,7 @@ let vectorChannel;
 client.on(Events.ClientReady, async () => {
   initPinecone();
   errorChannel = await client.channels.fetch(errorChannelId);
-  vectorChannel = client.channels.cache.get("1054312191689510983");
+  vectorChannel = client.channels.cache.get("1060822726945820772");
 });
 
 //---- for dynamically retrieving command files ----
